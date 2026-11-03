@@ -233,18 +233,28 @@ const Sombra = (() => {
 
   const posts = p => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, y]) => [x * (p.W / 2 - 8), y * (p.H / 2 - 8)]);
 
-  /* caixa da eletrônica: fundo contra a parede, interruptor à direita e saída do cabo embaixo */
+  /* caixa da eletrônica: fundo contra a parede, portinhola das pilhas e interruptor à direita */
+  const HATCH = [86, 56], OPEN = [70, 50];
+  const hatchY = p => -p.H / 4, hatchScrews = p => [[-39, hatchY(p)], [39, hatchY(p)]];
   function boxTris(p) {
-    const t = [], T = BASE - 3, F = 2, w = p.W / 2, h = p.H / 2, i = w - 2, j = h - 2, cy = p.H / 4;
+    const t = [], T = BASE - 3, F = 3, w = p.W / 2, h = p.H / 2, i = w - 2, j = h - 2, cy = p.H / 4, y = hatchY(p);
     const low = circle(4.5, 0, cy, 28).filter(q => !(q[1] > cy && Math.abs(q[0]) < 2));
     const start = low.findIndex(q => q[1] > cy && q[0] < 0);
     const keyhole = cw([...low.slice(start), ...low.slice(0, start), [2, cy + 9], [-2, cy + 9]]);
-    prism(t, [rect(p.W, p.H), keyhole, ...posts(p).map(q => cw(circle(3, q[0], q[1], 20)))], 0, F);
+    const heads = posts(p).map(q => cw(circle(3, q[0], q[1], 20)));
+    prism(t, [rect(p.W, p.H), keyhole, ...heads, cw(rect(HATCH[0], HATCH[1], 0, y))], 0, 1.5);
+    prism(t, [rect(p.W, p.H), keyhole, ...heads, cw(rect(OPEN[0], OPEN[1], 0, y)), ...hatchScrews(p).map(q => cw(circle(.9, q[0], q[1], 14)))], 1.5, F);
     const ring = [rect(p.W, p.H), cw(rect(2 * i, 2 * j))];
-    const gapBottom = [[-w, -h], [-4, -h], [-4, -j], [-i, -j], [-i, j], [i, j], [i, -j], [4, -j], [4, -h], [w, -h], [w, h], [-w, h]];
     const gapRight = [[-w, -h], [w, -h], [w, -9.5], [i, -9.5], [i, -j], [-i, -j], [-i, j], [i, j], [i, 9.5], [w, 9.5], [w, h], [-w, h]];
-    prism(t, [gapBottom], F, 7); prism(t, ring, 7, 7.5); prism(t, [gapRight], 7.5, 20.5); prism(t, ring, 20.5, T);
+    prism(t, ring, F, 7.5); prism(t, [gapRight], 7.5, 20.5); prism(t, ring, 20.5, T);
     for (const q of posts(p)) prism(t, [circle(5, q[0], q[1], 20), cw(circle(1.7, q[0], q[1], 16))], F, T);
+    for (const q of hatchScrews(p)) prism(t, [circle(3.5, q[0], q[1], 20), cw(circle(.9, q[0], q[1], 14))], F, 9);
+    return t;
+  }
+  /* portinhola: encaixa no rebaixo do fundo, presa por 2 parafusos M2 */
+  function hatchTris() {
+    const t = [], [a, b] = [HATCH[0] - .6, HATCH[1] - .6];
+    prism(t, [rect(a, b), cw(circle(1.2, -39, 0, 14)), cw(circle(1.2, 39, 0, 14))], 0, 1.5);
     return t;
   }
 
@@ -343,6 +353,6 @@ const Sombra = (() => {
     disc(N * .84, N * .13, 0); return a;
   }
 
-  return { N, G, WALL, BASE, ledZ, tubeLen, artSize, TUBE_OD, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, boxTris, plateTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
+  return { N, G, WALL, BASE, ledZ, tubeLen, artSize, TUBE_OD, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, boxTris, hatchTris, plateTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
 })();
 if (typeof module !== 'undefined') module.exports = Sombra;
