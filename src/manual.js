@@ -20,6 +20,9 @@ const Manual = (() => {
     hang: svg(r(120, 6, 80, 158, '#32313d', K) + t(160, 24, 'parede', E) + `<circle cx="160" cy="46" r="3.5" fill="${Y}"/>` + g('a-dn', r(118, 50, 84, 96) + `<path d="M154 66a6 6 0 1 1 12 0v0l-3 3v-14h-6v14z" fill="#191821"/>`) + t(250, 90, 'encaixe e') + t(250, 104, 'puxe para baixo')),
     on: svg(`<rect width="320" height="170" fill="#0d0c12"/><ellipse cx="160" cy="84" rx="150" ry="74" fill="${Y}" opacity=".22" class="a-pulse"/>` + `<path d="M126 84c-44 -70 -30 -66 34 -54 64 -12 78 -16 34 54 34 60 -96 60 -68 0z" fill="#0d0c12"/>` + r(136, 58, 48, 56, E, E) + `<circle cx="160" cy="86" r="4" fill="${Y}"/>`)
   };
+  const IMG = { print: 'pecas', tube: 'tubo', cap: 'tubo', art: 'tampo', box: 'caixa', close: 'fechar', wall: 'paineis', hang: 'traseira', on: 'parede' };
+  const pic = (name, alt) => `<img class="mimg" src="manual/${name}" alt="${alt}" loading="lazy">`;
+  const figure = (art, title) => IMG[art] ? pic(IMG[art] + '.webp', title) : ART[art];
   const CHECK = [
     ['Para imprimir', [['Filamento PLA ou PETG preto', 'opaco, para caixa, tampo e painéis', 'FIL g no total'], ['Filamento PLA claro', 'só se usar estampa do fundo']]],
     ['Eletrônica', [['LED branco quente de 1 W em placa redonda de até 8 mm', 'precisa passar dentro do tubo; emissor de até 3 mm deixa a sombra mais nítida'], ['Resistor de 10 Ω, 1 W', 'limita a corrente do LED'], ['Interruptor de balancim KCD1-11', 'janela de 19 × 13 mm'], ['Suporte para 3 pilhas AA', 'até 70 × 50 × 20 mm, com fios'], ['3 pilhas AA'], ['Fio fino flexível, vermelho e preto', '26 AWG, cerca de 50 cm de cada'], ['Termorretrátil fino', 'para isolar as emendas']]],
@@ -47,9 +50,12 @@ const Manual = (() => {
     const fil = (document.getElementById('parts').textContent.match(/Filamento estimado(\d+) g/) || [])[1] || '–';
     const sub = s => s.replace('TUBE_MM', tube).replace('FIL g', fil + ' g');
     const buy = CHECK.map(([h, items]) => `<h3>${h}</h3><div class="buy">` + items.map(([a, b, c]) => { const k = a.slice(0, 24); return `<label><input type="checkbox" data-k="${k}" ${seen[k] ? 'checked' : ''}><span>${a}${b || c ? `<small>${sub([b, c].filter(Boolean).join(' · '))}</small>` : ''}</span></label>`; }).join('') + '</div>').join('');
-    const steps = STEPS({ tube }).map(([h, art, li, w], i) => `<article class="mstep"><h2><span>Passo ${i + 1} de 11</span><br>${h}</h2>${sub(ART[art])}<ul>${li.map(x => `<li>${x}</li>`).join('')}</ul>${w ? `<p class="warnbox">Atenção: ${w}</p>` : ''}</article>`).join('');
+    const steps = STEPS({ tube }).map(([h, art, li, w], i) => `<article class="mstep"><h2><span>Passo ${i + 1} de 11</span><br>${h}</h2>${sub(figure(art, h))}<ul>${li.map(x => `<li>${x}</li>`).join('')}</ul>${w ? `<p class="warnbox">Atenção: ${w}</p>` : ''}</article>`).join('');
     box.innerHTML = `<div class="top"><h1>Manual de montagem</h1><button class="btn slim" id="closeManual">Voltar ao ateliê</button></div>
       <p>Medidas deste projeto: caixa de ${p.W} × ${p.H} mm, profundidade total de ${p.D} mm e sombra de ${Math.round(p.S / 10)} cm.</p>
+      <section><h2>A montagem completa</h2>${pic('montagem.gif', 'Animação das peças da caixa se encaixando')}<p>Exemplo gerado com as peças reais da caixa Média e o desenho da árvore. As imagens vêm do modelo 3D, não são fotos. Os recortes dos painéis mudam conforme o seu desenho.</p></section>
+      <section><h2>O que sai da impressora</h2>${pic('pecas.webp', 'Peças impressas sobre a mesa')}<p class="strong">São 8 peças: caixa da base, tampo, portinhola, suporte do LED e 4 painéis.</p><p>Com estampa, são 9 peças. Ela fica sobre o tampo.</p></section>
+      <section><h2>O que vem de fora</h2>${pic('externos.webp', 'Itens comprados: tubo, LED, interruptor e parafusos')}<p class="strong">Tudo isto precisa ser comprado.</p><p>A lista completa está logo abaixo.</p></section>
       <section><h2>Lista de compras</h2><p>Marque o que você já tem. As marcações ficam salvas neste aparelho.</p>${buy}</section>${steps}`;
     box.hidden = false; document.getElementById('appMain').hidden = true; scrollTo(0, 0);
     box.querySelectorAll('[data-k]').forEach(c => c.onchange = () => { const o = load(); o[c.dataset.k] = c.checked; save(o); });

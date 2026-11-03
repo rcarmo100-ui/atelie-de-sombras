@@ -84,3 +84,4 @@ header{flex-wrap:wrap}header h1{flex:1 1 auto;min-width:0}
 @keyframes aRt{0%,15%{transform:translateX(-40px);opacity:.15}60%,100%{transform:none;opacity:1}}
 @keyframes aLf{0%,15%{transform:translateX(40px);opacity:.15}60%,100%{transform:none;opacity:1}}
 @keyframes aP{50%{opacity:.35}}@keyframes aF{to{stroke-dashoffset:-14}}}
+.mimg{width:100%;height:auto;display:block;border-radius:6px;background:#191821}
