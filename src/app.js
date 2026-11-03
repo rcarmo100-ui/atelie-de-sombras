@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id), N = Sombra.N, VIEW = 1200; // parede visível: 1 m
 const st = { gray: null, edit: new Int8Array(N * N), sil: new Uint8Array(N * N), panels: null, tool: 'move', view: 'wall', undo: [], busy: 0,
-  p: { W: 110, H: 155, D: 60, S: 900, ox: 0, oy: 0, frame: false }, thr: 128, inv: false, preview: false };
+  p: { W: 110, H: 155, D: 90, S: 900, ox: 0, oy: 0, frame: false }, thr: 128, inv: false, preview: false };
 const cv = $('wall'), ctx = cv.getContext('2d', { willReadFrequently: true }), R = cv.width, img = ctx.createImageData(R, R);
 
 function compose() {
@@ -51,7 +51,7 @@ function drawFront() { ctx.fillStyle = '#16151d'; ctx.fillRect(0, 0, R, R); cons
   const q = art.mask; if (!q) { ctx.fillStyle = '#6a6578'; ctx.font = '500 22px "IBM Plex Mono",monospace'; ctx.fillText('sem estampa', R / 2, R / 2 + 8); return; }
   const c = document.createElement('canvas'); c.width = q.nx; c.height = q.ny; const g = c.getContext('2d'), im = g.createImageData(q.nx, q.ny);
   for (let j = 0; j < q.ny; j++) for (let i = 0; i < q.nx; i++) { const o = (j * q.nx + i) * 4, on = q.a[(q.ny - 1 - j) * q.nx + i]; im.data[o] = 22; im.data[o + 1] = 21; im.data[o + 2] = 29; im.data[o + 3] = on ? 255 : 0; }
-  g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); ctx.fillStyle = '#16151d'; ctx.beginPath(); ctx.arc(R / 2, R / 2, 15.4 * s, 0, 7); ctx.fill(); }
+  g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); ctx.fillStyle = '#16151d'; ctx.beginPath(); ctx.arc(R / 2, R / 2, 8.9 * s, 0, 7); ctx.fill(); }
 function artChanged() { artMask(); Room.dirty(); $('artThrOut').textContent = art.thr; if (art.bmp) { st.view = 'front'; viewButtons(); } draw(); partsList(); }
 function viewButtons() { for (const [id, v] of [['vWall', 'wall'], ['vParts', 'parts'], ['vFront', 'front'], ['vRoom', 'room']]) $(id).setAttribute('aria-pressed', st.view === v);
   const room = st.view === 'room'; $('wall').hidden = room; $('room').hidden = !room; $('roomHint').hidden = !room; $('roomBar').hidden = !room; }
@@ -70,9 +70,9 @@ function grams(mm3) { return Math.round(mm3 / 1000 * 1.24); }
 function partsList() {
   const q = st.panels, p = st.p; let html = '', tot = 0, G = Sombra.G;
   for (const n in q) { const g = grams(q[n].cells * G * G * Sombra.WALL); tot += g; html += `<li>Painel ${n}<span>${q[n].len.toFixed(0)}×${q[n].Pz} mm · ${g} g</span></li>`; }
-  const b = grams(p.W * p.H * 3 * 1.15), c = 2; tot += b + c;
+  const b = grams((2 * (p.W + p.H) * 2 * 23 + p.W * p.H * 2) * 1.05), t = grams(p.W * p.H * 3 * 1.1), c = 1; tot += b + t + c;
   let artLine = ''; if (art.mask) { const [aw, ah] = Sombra.artSize(p), g = grams(aw * ah * Sombra.ART_BASE + art.cells * G * G * (Sombra.ART_TOP - Sombra.ART_BASE)); tot += g; artLine = `<li>Estampa do fundo<span>${aw.toFixed(0)}×${ah.toFixed(0)} mm · ${g} g</span></li>`; }
-  html += `<li>Base<span>${p.W}×${p.H} mm · ${b} g</span></li><li>Suporte do LED<span>Ø29 mm · ${c} g</span></li><li>Tubo de acrílico (comprar)<span>Ø25×21 mm · corte ${Sombra.tubeLen(p).toFixed(0)} mm</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
+  html += `<li>Caixa da base<span>${p.W}×${p.H}×25 mm · ${b} g</span></li><li>Tampo<span>${p.W}×${p.H} mm · ${t} g</span></li><li>Suporte do LED<span>Ø16 mm · ${c} g</span></li><li>Tubo de acrílico (comprar)<span>Ø12×10 mm · corte ${Sombra.tubeLen(p).toFixed(0)} mm</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
   $('parts').innerHTML = html;
 }
 function labels() {
@@ -175,10 +175,10 @@ function offerFile(blob, name, msg) { const url = URL.createObjectURL(blob), l =
 function buildParts() { const p = st.p, list = [];
   st.panels = st.panels || Sombra.buildAll(st.sil, p);
   for (const n in st.panels) list.push({ name: 'painel-' + n, tris: Sombra.panelTris(st.panels[n]) });
-  list.push({ name: 'base', tris: Sombra.baseTris(p) }, { name: 'suporte-led', tris: Sombra.capTris() });
+  list.push({ name: 'caixa-base', tris: Sombra.boxTris(p) }, { name: 'tampo', tris: Sombra.plateTris(p) }, { name: 'suporte-led', tris: Sombra.capTris() });
   if (art.bmp && artMask()) list.push({ name: 'estampa-fundo', tris: Sombra.artTris(art.mask, p) });
   return list; }
-function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} x ${p.D} mm, com a frente aberta. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima deitado, sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nCorte um tubo de acrílico transparente de 25 mm de diâmetro externo e 21 mm interno com ${Sombra.tubeLen(p).toFixed(0)} mm.\nCole a placa estrela na ponta do suporte, com o LED virado para a parede. Passe os fios pelo tubo e encaixe o suporte na ponta do tubo.\nEncaixe o tubo no anel da base. O cabo sai pelo furo central e pelo canal atrás da base.\nCole os painéis em volta da aba, com a faixa lisa na base; olhando de fora, com a borda livre para cima, o furinho fica à esquerda.\nUse resistor de 10 ohm e 1 W em série com o LED.\n${art.bmp ? `\nEstampa do fundo: comece com filamento claro e troque para o escuro na altura de 1,2 mm. Encaixe dentro da aba da base, em volta do anel do tubo.\n` : ''}`; }
+function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} mm, profundidade total ${p.D} mm, com a frente aberta. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nCorte um tubo de acrílico transparente de 12 mm de diâmetro externo e 10 mm interno com ${Sombra.tubeLen(p).toFixed(0)} mm.\nCole o LED na ponta do suporte, virado para a parede. Passe os fios pelo tubo e encaixe o suporte na ponta do tubo.\nEncaixe o tubo no anel do tampo e leve os fios para dentro da caixa pelo furo central.\nInstale o interruptor KCD1-11 na janela lateral. O cabo USB entra pelo recorte inferior. Ligue o resistor de 10 ohm e 1 W em série com o LED.\nFeche o tampo com 4 parafusos M3 pela parte de trás da caixa.\nCole os painéis em volta da aba do tampo, com a faixa lisa embaixo; olhando de fora, com a borda livre para cima, o furinho fica à esquerda.\n${art.bmp ? `\nEstampa do fundo: comece com filamento claro e troque para o escuro na altura de 1,2 mm. Encaixe dentro da aba do tampo, em volta do anel do tubo.\n` : ''}`; }
 async function exportAs(kind) { const msg = $('saveMsg'), btns = [$('saveZip'), $('saveStl')]; clearTimeout(timer); btns.forEach(b => b.disabled = true); msg.className = ''; msg.textContent = 'Gerando as peças…';
   await new Promise(r => setTimeout(r, 30));
   try { const parts = buildParts();

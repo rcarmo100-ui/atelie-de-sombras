@@ -56,7 +56,8 @@ const Room = (() => {
     const B = Sombra.BASE, black = 0x17171b, L = Sombra.ledZ(p);
     for (const n in panels) { const q = panels[n], d = q.def, H = (d.axis === 'y' ? p.H : p.W) / 2;
       lamp.add(mesh(Sombra.panelTris(q), (x, y, z) => { const v = (x - q.len / 2) * d.dir, c = d.s * (H - z); return d.axis === 'y' ? [v, c, B + y] : [c, v, B + y]; }, black)); }
-    const base = mesh(Sombra.baseTris(p), (x, y, z) => [x, y, z], art ? black : 0xd8d2c4); lamp.add(base); if (!art) plates.push(base);
+    lamp.add(mesh(Sombra.boxTris(p), (x, y, z) => [x, y, z], black));
+    const plate = mesh(Sombra.plateTris(p), (x, y, z) => [x, y, B - 3 + z], art ? black : 0xd8d2c4); lamp.add(plate); if (!art) plates.push(plate);
     const top = L + 7.5;
     lamp.add(mesh(Sombra.capTris(), (x, y, z) => [x, y, top + 2.5 - z], 0xe9e5dc));
     const tg = new THREE.CylinderGeometry(Sombra.TUBE_OD / 2, Sombra.TUBE_OD / 2, top - B, 32, 1, true);

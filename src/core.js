@@ -2,11 +2,11 @@
 /* Geometria da luminária: tudo em mm. Parede em z=0, LED em (0,0,L) apontando para a parede. */
 const Sombra = (() => {
   const N = 768, G = 0.2;           // resolução da silhueta; grade dos painéis (mm)
-  const WALL = 1.6, BASE = 3, RAIL = 4, MINR = 2; // MINR*2+1 células = 1 mm
+  const WALL = 1.6, BASE = 28, RAIL = 4, MINR = 2; // MINR*2+1 células = 1 mm
   const earcutFn = (typeof earcut !== 'undefined') ? earcut : (typeof require !== 'undefined' ? require('earcut') : null);
 
   const ledZ = p => p.D - 2;
-  const TUBE_OD = 25, TUBE_ID = 21, tubeLen = p => ledZ(p) + 7.5 - BASE;
+  const TUBE_OD = 12, TUBE_ID = 10, tubeLen = p => ledZ(p) + 7.5 - BASE;
 
   /* morfologia separável com janela quadrada */
   function dilate(a, nx, ny, r) {
@@ -231,25 +231,38 @@ const Sombra = (() => {
   const lipSize = p => [p.W - 2 * WALL - .5, p.H - 2 * WALL - .5];
   const artSize = p => { const [a, b] = lipSize(p); return [a - 3.8, b - 3.8]; };
 
-  /* base: placa contra a parede, aba para os painéis, anel do tubo e canal do cabo atrás */
-  function baseTris(p) {
-    const t = [], [ins, inh] = lipSize(p), cy = p.H / 4;
+  const posts = p => [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([x, y]) => [x * (p.W / 2 - 8), y * (p.H / 2 - 8)]);
+
+  /* caixa da eletrônica: fundo contra a parede, interruptor à direita e saída do cabo embaixo */
+  function boxTris(p) {
+    const t = [], T = BASE - 3, F = 2, w = p.W / 2, h = p.H / 2, i = w - 2, j = h - 2, cy = p.H / 4;
     const low = circle(4.5, 0, cy, 28).filter(q => !(q[1] > cy && Math.abs(q[0]) < 2));
     const start = low.findIndex(q => q[1] > cy && q[0] < 0);
     const keyhole = cw([...low.slice(start), ...low.slice(0, start), [2, cy + 9], [-2, cy + 9]]);
-    const w = p.W / 2, h = p.H / 2;
-    prism(t, [[[-w, -h], [-3, -h], [-3, 3], [3, 3], [3, -h], [w, -h], [w, h], [-w, h]], keyhole], 0, 2);
-    prism(t, [rect(p.W, p.H), keyhole, cw(circle(3.5, 0, 0, 20))], 2, BASE);
-    prism(t, [rect(ins, inh), cw(rect(ins - 3.2, inh - 3.2))], BASE, BASE + 3);
-    prism(t, [circle(15, 0, 0, 48), cw(circle(TUBE_OD / 2 + .2, 0, 0, 48))], BASE, BASE + 6);
+    prism(t, [rect(p.W, p.H), keyhole, ...posts(p).map(q => cw(circle(3, q[0], q[1], 20)))], 0, F);
+    const ring = [rect(p.W, p.H), cw(rect(2 * i, 2 * j))];
+    const gapBottom = [[-w, -h], [-4, -h], [-4, -j], [-i, -j], [-i, j], [i, j], [i, -j], [4, -j], [4, -h], [w, -h], [w, h], [-w, h]];
+    const gapRight = [[-w, -h], [w, -h], [w, -9.5], [i, -9.5], [i, -j], [-i, -j], [-i, j], [i, j], [i, 9.5], [w, 9.5], [w, h], [-w, h]];
+    prism(t, [gapBottom], F, 7); prism(t, ring, 7, 7.5); prism(t, [gapRight], 7.5, 20.5); prism(t, ring, 20.5, T);
+    for (const q of posts(p)) prism(t, [circle(5, q[0], q[1], 20), cw(circle(1.7, q[0], q[1], 16))], F, T);
     return t;
   }
 
-  /* suporte do LED: encaixa na ponta do tubo; a placa estrela fica na ponta do plugue */
+  /* tampo da caixa: recebe a estampa, a aba dos painéis e o anel do tubo */
+  function plateTris(p) {
+    const t = [], [ins, inh] = lipSize(p);
+    prism(t, [rect(p.W, p.H), cw(circle(3.5, 0, 0, 20)), ...posts(p).map(q => cw(circle(1.3, q[0], q[1], 16)))], 0, 1.5);
+    prism(t, [rect(p.W, p.H), cw(circle(3.5, 0, 0, 20))], 1.5, 3);
+    prism(t, [rect(ins, inh), cw(rect(ins - 3.2, inh - 3.2))], 3, 6);
+    prism(t, [circle(8.5, 0, 0, 40), cw(circle(TUBE_OD / 2 + .2, 0, 0, 40))], 3, 9);
+    return t;
+  }
+
+  /* suporte do LED: encaixa na ponta do tubo; o LED fica colado na ponta do plugue */
   function capTris() {
     const t = [];
-    prism(t, [circle(14.5, 0, 0, 48)], 0, 2.5);
-    prism(t, [circle(TUBE_ID / 2 - .2, 0, 0, 48), cw(circle(8, 0, 0, 32))], 2.5, 8.5);
+    prism(t, [circle(8, 0, 0, 40)], 0, 2.5);
+    prism(t, [circle(TUBE_ID / 2 - .2, 0, 0, 32), cw(circle(2.5, 0, 0, 20))], 2.5, 8.5);
     return t;
   }
 
@@ -262,7 +275,7 @@ const Sombra = (() => {
   /* estampa do fundo: placa clara com a arte em relevo, para trocar o filamento na altura ART_BASE */
   const ART_BASE = 1.2, ART_TOP = 1.8;
   function artClean(a, nx, ny) {
-    const cx = (nx - 1) / 2, cy = (ny - 1) / 2, rr = (16.5 / G) ** 2;
+    const cx = (nx - 1) / 2, cy = (ny - 1) / 2, rr = (9.5 / G) ** 2;
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) if ((i - cx) ** 2 + (j - cy) ** 2 < rr) a[j * nx + i] = 0;
     const min = .4 / (G * G); let r = label(a, nx, ny, 1);
     for (let k = 0; k < a.length; k++) if (a[k] && r.sizes[r.lab[k]] < min) a[k] = 0;
@@ -272,7 +285,7 @@ const Sombra = (() => {
   }
   function artTris(mask, p) {
     const t = [], [w, h] = artSize(p);
-    prism(t, [rect(w, h, w / 2, h / 2), cw(circle(15.4, w / 2, h / 2, 48))], 0, ART_BASE);
+    prism(t, [rect(w, h, w / 2, h / 2), cw(circle(8.9, w / 2, h / 2, 40))], 0, ART_BASE);
     const rings = contours(mask).map(r => r.map(q => [Math.round(q[0] * 1e3) / 1e3, Math.round(q[1] * 1e3) / 1e3]));
     prism(t, rings, ART_BASE, ART_TOP); return t;
   }
@@ -330,6 +343,6 @@ const Sombra = (() => {
     disc(N * .84, N * .13, 0); return a;
   }
 
-  return { N, G, WALL, BASE, ledZ, tubeLen, artSize, TUBE_OD, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
+  return { N, G, WALL, BASE, ledZ, tubeLen, artSize, TUBE_OD, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, boxTris, plateTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
 })();
 if (typeof module !== 'undefined') module.exports = Sombra;
