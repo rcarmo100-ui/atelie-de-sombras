@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id), N = Sombra.N, VIEW = 1200; // parede visível: 1 m
 const st = { gray: null, edit: new Int8Array(N * N), sil: new Uint8Array(N * N), panels: null, tool: 'move', view: 'wall', undo: [], busy: 0,
-  p: { W: 150, H: 150, D: 60, S: 900, ox: 0, oy: 0, frame: true }, thr: 128, inv: false, preview: false };
+  p: { W: 110, H: 155, D: 60, S: 900, ox: 0, oy: 0, frame: false }, thr: 128, inv: false, preview: false };
 const cv = $('wall'), ctx = cv.getContext('2d', { willReadFrequently: true }), R = cv.width, img = ctx.createImageData(R, R);
 
 function compose() {
@@ -17,8 +17,8 @@ function drawWall() {
       d[o] = 14 + 232 * lux; d[o + 1] = 13 + 200 * lux; d[o + 2] = 18 + 146 * lux; d[o + 3] = 255; } }
   ctx.putImageData(img, 0, 0);
   const w = p.W / mm, h = p.H / mm, x = R / 2 - w / 2, y = R / 2 - h / 2;
-  ctx.fillStyle = '#26242f'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#6a6578'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
-  ctx.fillStyle = '#a9a4b4'; ctx.font = '500 20px "IBM Plex Mono",monospace'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#efe3cc'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#6a6578'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = '#4a4656'; ctx.font = '500 20px "IBM Plex Mono",monospace'; ctx.textAlign = 'center';
   ctx.fillText(`${p.W}×${p.H}`, R / 2, R / 2 + 7);
   if (st.tool === 'move') { const s = p.S / mm; ctx.setLineDash([8, 8]); ctx.strokeStyle = 'rgba(255,190,107,.55)'; if (p.frame) { ctx.beginPath(); ctx.arc(R / 2 + p.ox / mm, R / 2 - p.oy / mm, s / 2, 0, 7); ctx.stroke(); } else ctx.strokeRect(R / 2 + (p.ox - p.S / 2) / mm, R / 2 - (p.oy + p.S / 2) / mm, s, s); ctx.setLineDash([]); }
   ctx.textAlign = 'left'; ctx.font = '500 18px "IBM Plex Mono",monospace'; ctx.fillStyle = 'rgba(241,234,217,.8)';
@@ -36,22 +36,22 @@ function drawParts() {
     ctx.fillStyle = '#a9a4b4'; ctx.font = '500 18px "IBM Plex Mono",monospace'; ctx.fillText('painel ' + n, 30, y + 14); y += 24;
     ctx.imageSmoothingEnabled = true; ctx.drawImage(c, 30, y, q.len * s, q.Pz * s); y += q.Pz * s + 16; }
 }
-/* estampa da frente: imagem própria, independente da sombra */
+/* estampa do fundo: imagem própria, independente da sombra */
 const art = { bmp: null, thr: 128, inv: false, mask: null, cells: 0 };
-function artMask() { if (!art.bmp) return null; const G = Sombra.G, p = st.p, nx = Math.round(p.W / G) + 1, ny = Math.round(p.H / G) + 1;
+function artMask() { if (!art.bmp) return null; const G = Sombra.G, [aw, ah] = Sombra.artSize(st.p), nx = Math.round(aw / G) + 1, ny = Math.round(ah / G) + 1;
   const c = document.createElement('canvas'); c.width = nx; c.height = ny; const g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#fff'; g.fillRect(0, 0, nx, ny);
-  const iw = art.bmp.naturalWidth || art.bmp.width, ih = art.bmp.naturalHeight || art.bmp.height, m = 3 / G, s = Math.min((nx - 2 * m) / iw, (ny - 2 * m) / ih);
+  const iw = art.bmp.naturalWidth || art.bmp.width, ih = art.bmp.naturalHeight || art.bmp.height, m = 2 / G, s = Math.min((nx - 2 * m) / iw, (ny - 2 * m) / ih);
   g.drawImage(art.bmp, (nx - iw * s) / 2, (ny - ih * s) / 2, iw * s, ih * s);
   const d = g.getImageData(0, 0, nx, ny).data, a = new Uint8Array(nx * ny);
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const o = ((ny - 1 - j) * nx + i) * 4, v = (d[o] * 77 + d[o + 1] * 150 + d[o + 2] * 29) >> 8; a[j * nx + i] = (v < art.thr) !== art.inv ? 1 : 0; }
   Sombra.artClean(a, nx, ny); let n = 0; for (let k = 0; k < a.length; k++) n += a[k];
   art.mask = { nx, ny, a }; art.cells = n; return art.mask; }
-function drawFront() { ctx.fillStyle = '#16151d'; ctx.fillRect(0, 0, R, R); const p = st.p, s = Math.min((R - 80) / p.W, (R - 80) / p.H), w = p.W * s, h = p.H * s, x = (R - w) / 2, y = (R - h) / 2;
+function drawFront() { ctx.fillStyle = '#16151d'; ctx.fillRect(0, 0, R, R); const [aw, ah] = Sombra.artSize(st.p), s = Math.min((R - 80) / aw, (R - 80) / ah), w = aw * s, h = ah * s, x = (R - w) / 2, y = (R - h) / 2;
   ctx.fillStyle = '#f1ead9'; ctx.fillRect(x, y, w, h); ctx.textAlign = 'center';
   const q = art.mask; if (!q) { ctx.fillStyle = '#6a6578'; ctx.font = '500 22px "IBM Plex Mono",monospace'; ctx.fillText('sem estampa', R / 2, R / 2 + 8); return; }
   const c = document.createElement('canvas'); c.width = q.nx; c.height = q.ny; const g = c.getContext('2d'), im = g.createImageData(q.nx, q.ny);
   for (let j = 0; j < q.ny; j++) for (let i = 0; i < q.nx; i++) { const o = (j * q.nx + i) * 4, on = q.a[(q.ny - 1 - j) * q.nx + i]; im.data[o] = 22; im.data[o + 1] = 21; im.data[o + 2] = 29; im.data[o + 3] = on ? 255 : 0; }
-  g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); }
+  g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); ctx.fillStyle = '#16151d'; ctx.beginPath(); ctx.arc(R / 2, R / 2, 15.4 * s, 0, 7); ctx.fill(); }
 function artChanged() { artMask(); Room.dirty(); $('artThrOut').textContent = art.thr; if (art.bmp) { st.view = 'front'; viewButtons(); } draw(); partsList(); }
 function viewButtons() { for (const [id, v] of [['vWall', 'wall'], ['vParts', 'parts'], ['vFront', 'front'], ['vRoom', 'room']]) $(id).setAttribute('aria-pressed', st.view === v);
   const room = st.view === 'room'; $('wall').hidden = room; $('room').hidden = !room; $('roomHint').hidden = !room; $('roomBar').hidden = !room; }
@@ -70,14 +70,14 @@ function grams(mm3) { return Math.round(mm3 / 1000 * 1.24); }
 function partsList() {
   const q = st.panels, p = st.p; let html = '', tot = 0, G = Sombra.G;
   for (const n in q) { const g = grams(q[n].cells * G * G * Sombra.WALL); tot += g; html += `<li>Painel ${n}<span>${q[n].len.toFixed(0)}×${q[n].Pz} mm · ${g} g</span></li>`; }
-  const b = grams(p.W * p.H * 3 * 1.15), c = grams(p.W * p.H * 3 * 1.3); tot += b + c;
-  let artLine = ''; if (art.mask) { const g = grams(p.W * p.H * Sombra.ART_BASE + art.cells * G * G * (Sombra.ART_TOP - Sombra.ART_BASE)); tot += g; artLine = `<li>Estampa da frente<span>${p.W}×${p.H} mm · ${g} g</span></li>`; }
-  html += `<li>Base<span>${p.W}×${p.H} mm · ${b} g</span></li><li>Tampa com torre do LED<span>${p.W}×${p.H} mm · ${c} g</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
+  const b = grams(p.W * p.H * 3 * 1.15), c = 2; tot += b + c;
+  let artLine = ''; if (art.mask) { const [aw, ah] = Sombra.artSize(p), g = grams(aw * ah * Sombra.ART_BASE + art.cells * G * G * (Sombra.ART_TOP - Sombra.ART_BASE)); tot += g; artLine = `<li>Estampa do fundo<span>${aw.toFixed(0)}×${ah.toFixed(0)} mm · ${g} g</span></li>`; }
+  html += `<li>Base<span>${p.W}×${p.H} mm · ${b} g</span></li><li>Suporte do LED<span>Ø29 mm · ${c} g</span></li><li>Tubo de acrílico (comprar)<span>Ø25×21 mm · corte ${Sombra.tubeLen(p).toFixed(0)} mm</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
   $('parts').innerHTML = html;
 }
 function labels() {
   const p = st.p; $('thrOut').textContent = st.thr; $('sizeOut').textContent = (p.S / 10).toFixed(0) + ' cm'; $('wOut').textContent = p.W + ' mm'; $('hOut').textContent = p.H + ' mm'; $('dOut').textContent = p.D + ' mm'; $('brushOut').textContent = $('brush').value + ' mm';
-  $('ledNote').textContent = `O LED fica a ${Sombra.ledZ(p)} mm da parede, no centro da caixa.`;
+  $('ledNote').textContent = `O LED fica a ${Sombra.ledZ(p)} mm da parede, na ponta de um tubo transparente de ${Sombra.tubeLen(p).toFixed(0)} mm.`;
 }
 function setGray(a) { st.gray = a; st.edit.fill(0); st.undo = []; $('undo').disabled = true; compose(); rebuild(true); }
 function loadTree() { const t = Sombra.tree(), g = new Uint8Array(N * N); for (let i = 0; i < N * N; i++) g[i] = t[i] ? 0 : 255; st.inv = false; $('inv').checked = false; st.thr = 128; $('thr').value = 128; st.p.ox = 0; st.p.oy = 40; labels(); setGray(g); }
@@ -175,10 +175,10 @@ function offerFile(blob, name, msg) { const url = URL.createObjectURL(blob), l =
 function buildParts() { const p = st.p, list = [];
   st.panels = st.panels || Sombra.buildAll(st.sil, p);
   for (const n in st.panels) list.push({ name: 'painel-' + n, tris: Sombra.panelTris(st.panels[n]) });
-  list.push({ name: 'base', tris: Sombra.baseTris(p) }, { name: 'tampa', tris: Sombra.capTris(p) });
-  if (art.bmp && artMask()) list.push({ name: 'estampa-frente', tris: Sombra.artTris(art.mask, p) });
+  list.push({ name: 'base', tris: Sombra.baseTris(p) }, { name: 'suporte-led', tris: Sombra.capTris() });
+  if (art.bmp && artMask()) list.push({ name: 'estampa-fundo', tris: Sombra.artTris(art.mask, p) });
   return list; }
-function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} x ${p.D} mm. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima tudo deitado, sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nMonte os painéis em volta da aba da base. Faixa estreita junto da base; olhando de fora, com a frente para cima, o furinho da faixa larga fica à esquerda.\nFixe o LED na torre da tampa, virado para a parede, com resistor de 10 ohm e 1 W em série.\nO cabo sai pelo recorte do painel inferior.\n${art.bmp ? `\nEstampa da frente: comece com filamento claro e troque para o escuro na altura de 1,2 mm. Cole na face externa da tampa.\n` : ''}`; }
+function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} x ${p.D} mm, com a frente aberta. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima deitado, sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nCorte um tubo de acrílico transparente de 25 mm de diâmetro externo e 21 mm interno com ${Sombra.tubeLen(p).toFixed(0)} mm.\nCole a placa estrela na ponta do suporte, com o LED virado para a parede. Passe os fios pelo tubo e encaixe o suporte na ponta do tubo.\nEncaixe o tubo no anel da base. O cabo sai pelo furo central e pelo canal atrás da base.\nCole os painéis em volta da aba, com a faixa lisa na base; olhando de fora, com a borda livre para cima, o furinho fica à esquerda.\nUse resistor de 10 ohm e 1 W em série com o LED.\n${art.bmp ? `\nEstampa do fundo: comece com filamento claro e troque para o escuro na altura de 1,2 mm. Encaixe dentro da aba da base, em volta do anel do tubo.\n` : ''}`; }
 async function exportAs(kind) { const msg = $('saveMsg'), btns = [$('saveZip'), $('saveStl')]; clearTimeout(timer); btns.forEach(b => b.disabled = true); msg.className = ''; msg.textContent = 'Gerando as peças…';
   await new Promise(r => setTimeout(r, 30));
   try { const parts = buildParts();

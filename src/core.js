@@ -2,10 +2,11 @@
 /* Geometria da luminária: tudo em mm. Parede em z=0, LED em (0,0,L) apontando para a parede. */
 const Sombra = (() => {
   const N = 768, G = 0.2;           // resolução da silhueta; grade dos painéis (mm)
-  const WALL = 1.6, BASE = 3, RAIL = 3, MINR = 2; // MINR*2+1 células = 1 mm
+  const WALL = 1.6, BASE = 3, RAIL = 4, MINR = 2; // MINR*2+1 células = 1 mm
   const earcutFn = (typeof earcut !== 'undefined') ? earcut : (typeof require !== 'undefined' ? require('earcut') : null);
 
-  const ledZ = p => p.D - 8;
+  const ledZ = p => p.D - 2;
+  const TUBE_OD = 25, TUBE_ID = 21, tubeLen = p => ledZ(p) + 7.5 - BASE;
 
   /* morfologia separável com janela quadrada */
   function dilate(a, nx, ny, r) {
@@ -63,7 +64,7 @@ const Sombra = (() => {
     return sil[(v + .5 | 0) * N + (u + .5 | 0)];
   }
 
-  /* sinal da coordenada: u cresce para a direita de quem olha de fora, com a frente para cima */
+  /* sinal da coordenada: u cresce para a direita de quem olha de fora, com a borda livre para cima */
   const SIDES = {
     superior: { axis: 'y', s: 1, dir: -1 }, inferior: { axis: 'y', s: -1, dir: 1 },
     direito: { axis: 'x', s: 1, dir: 1 }, esquerdo: { axis: 'x', s: -1, dir: -1 } };
@@ -78,7 +79,8 @@ const Sombra = (() => {
     for (let j = 0; j < ny; j++) { const w = j * G, z = BASE + w;
       const dt = z < L ? L / ((L - z) * (L - z)) * G : 0;
       for (let i = 0; i < nx; i++) { const u = -len / 2 + i * G, o = j * nx + i;
-        if (w < RAIL || z >= L) { a[o] = 1; continue; }
+        if (w < RAIL) { a[o] = 1; continue; }
+        if (z >= L) { if (p.frame) a[o] = 1; continue; }
         const t = L / (L - z), P = wall(u, t), on = maskAt(sil, P[0], P[1], p) > 127;
         if (on) a[o] = 1; else cost[i] += Math.min(dt, 3); } }
     /* finos demais para o bico: engrossa; frestas estreitas: fecha */
@@ -86,7 +88,7 @@ const Sombra = (() => {
     for (let k = 0; k < a.length; k++) thin[k] = a[k] && !opened[k] ? 1 : 0;
     const th = dilate(thin, nx, ny, 1); for (let k = 0; k < a.length; k++) if (th[k]) a[k] = 1;
     a = erode(dilate(a, nx, ny, 1), nx, ny, 1);
-    /* com moldura: duas colunas onde o desenho já é escuro; sem moldura: colunas finas nos cantos */
+    /* frente aberta. Com moldura, a faixa escura precisa de duas colunas, nas partes já escuras do desenho */
     const ribs = [];
     if (p.frame) { const rw = Math.round(1 / G);
       for (const [lo, hi] of [[rw, nx >> 1], [nx >> 1, nx - 1 - rw]]) {
@@ -94,17 +96,14 @@ const Sombra = (() => {
         for (let i = lo; i < hi; i++) { let s = 0; for (let k = -rw; k <= rw; k++) s += cost[i + k]; if (s < bc) { bc = s; best = i; } }
         ribs.push(best);
         for (let j = 0; j < ny; j++) for (let k = -rw; k <= rw; k++) a[j * nx + best + k] = 1; } }
-    else { const n = Math.round(1.2 / G); for (let j = 0; j < ny; j++) for (let k = 0; k < n; k++) { a[j * nx + k] = 1; a[j * nx + nx - 1 - k] = 1; } }
     /* remove farelos e furinhos */
     let r = label(a, nx, ny, 1); const main = r.lab[0], minA = 1.5 / (G * G);
     for (let k = 0; k < a.length; k++) if (a[k] && r.lab[k] !== main && r.sizes[r.lab[k]] < minA) a[k] = 0;
     r = label(a, nx, ny, 0);
     for (let k = 0; k < a.length; k++) if (!a[k] && r.sizes[r.lab[k]] < 1 / (G * G)) a[k] = 1;
     a = connect(a, nx, ny);
-    /* furo-guia na faixa da frente e saída de cabo no painel inferior */
-    const gridHole = (cu, cw, rad) => { for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const du = i * G - cu, dw = j * G - cw; if (du * du + dw * dw < rad * rad) a[j * nx + i] = 0; } };
-    gridHole(7, L - BASE + 4, 1.3);
-    if (name === 'inferior') for (let j = ny - Math.round(4.5 / G); j < ny; j++) for (let i = (nx >> 1) - 25; i <= (nx >> 1) + 25; i++) a[j * nx + i] = 0;
+    /* furo-guia na faixa da base: orienta o painel na montagem */
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const du = i * G - 7, dw = j * G - RAIL / 2; if (du * du + dw * dw < 1) a[j * nx + i] = 0; }
     let cells = 0; for (let k = 0; k < a.length; k++) cells += a[k];
     return { name, def, nx, ny, a, len, Pz, c, cells, ribs };
   }
@@ -229,26 +228,28 @@ const Sombra = (() => {
   const circle = (r, cx, cy, n = 32) => Array.from({ length: n }, (_, i) => [cx + r * Math.cos(i / n * 6.28318530718), cy + r * Math.sin(i / n * 6.28318530718)]);
   const cw = r => r.slice().reverse();
 
+  const lipSize = p => [p.W - 2 * WALL - .5, p.H - 2 * WALL - .5];
+  const artSize = p => { const [a, b] = lipSize(p); return [a - 3.8, b - 3.8]; };
+
+  /* base: placa contra a parede, aba para os painéis, anel do tubo e canal do cabo atrás */
   function baseTris(p) {
-    const t = [], ins = p.W - 2 * WALL - .5, inh = p.H - 2 * WALL - .5;
-    // buraco de fechadura para pendurar: cabeça do parafuso entra embaixo e trava em cima
-    const c = circle(4.5, 0, 0, 28), low = c.filter(q => !(q[1] > 0 && Math.abs(q[0]) < 2));
-    const start = low.findIndex((q, i) => q[1] > 0 && q[0] < 0);
-    const ring = [...low.slice(start), ...low.slice(0, start)];
-    const slot = [[2, 9], [-2, 9]];
-    const keyhole = cw([...ring, ...slot]);
-    prism(t, [rect(p.W, p.H), keyhole], 0, BASE);
+    const t = [], [ins, inh] = lipSize(p), cy = p.H / 4;
+    const low = circle(4.5, 0, cy, 28).filter(q => !(q[1] > cy && Math.abs(q[0]) < 2));
+    const start = low.findIndex(q => q[1] > cy && q[0] < 0);
+    const keyhole = cw([...low.slice(start), ...low.slice(0, start), [2, cy + 9], [-2, cy + 9]]);
+    const w = p.W / 2, h = p.H / 2;
+    prism(t, [[[-w, -h], [-3, -h], [-3, 3], [3, 3], [3, -h], [w, -h], [w, h], [-w, h]], keyhole], 0, 2);
+    prism(t, [rect(p.W, p.H), keyhole, cw(circle(3.5, 0, 0, 20))], 2, BASE);
     prism(t, [rect(ins, inh), cw(rect(ins - 3.2, inh - 3.2))], BASE, BASE + 3);
+    prism(t, [circle(15, 0, 0, 48), cw(circle(TUBE_OD / 2 + .2, 0, 0, 48))], BASE, BASE + 6);
     return t;
   }
 
-  function capTris(p) {
-    const t = [], L = ledZ(p), tube = p.D - L - 1.5, ins = p.W - 2 * WALL - .5, inh = p.H - 2 * WALL - .5;
-    prism(t, [rect(p.W, p.H)], 0, 3);
-    const o = ins / 2, q = inh / 2, w = 1.6, gap = 7; // aba interna, aberta embaixo para o cabo
-    prism(t, [[[-o, -q], [-gap, -q], [-gap, -q + w], [-o + w, -q + w], [-o + w, q - w], [o - w, q - w], [o - w, -q + w], [gap, -q + w], [gap, -q], [o, -q], [o, q], [-o, q]]], 3, 7);
-    const a = 11, b = 8; // torre em U para a placa estrela de 20 mm
-    prism(t, [[[-a, -a], [-b, -a], [-b, b], [b, b], [b, -a], [a, -a], [a, a], [-a, a]]], 3, 3 + tube);
+  /* suporte do LED: encaixa na ponta do tubo; a placa estrela fica na ponta do plugue */
+  function capTris() {
+    const t = [];
+    prism(t, [circle(14.5, 0, 0, 48)], 0, 2.5);
+    prism(t, [circle(TUBE_ID / 2 - .2, 0, 0, 48), cw(circle(8, 0, 0, 32))], 2.5, 8.5);
     return t;
   }
 
@@ -258,9 +259,11 @@ const Sombra = (() => {
     return t;
   }
 
-  /* estampa da frente: placa clara com a arte em relevo, para trocar o filamento na altura ART_BASE */
+  /* estampa do fundo: placa clara com a arte em relevo, para trocar o filamento na altura ART_BASE */
   const ART_BASE = 1.2, ART_TOP = 1.8;
   function artClean(a, nx, ny) {
+    const cx = (nx - 1) / 2, cy = (ny - 1) / 2, rr = (16.5 / G) ** 2;
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) if ((i - cx) ** 2 + (j - cy) ** 2 < rr) a[j * nx + i] = 0;
     const min = .4 / (G * G); let r = label(a, nx, ny, 1);
     for (let k = 0; k < a.length; k++) if (a[k] && r.sizes[r.lab[k]] < min) a[k] = 0;
     r = label(a, nx, ny, 0);
@@ -268,7 +271,8 @@ const Sombra = (() => {
     return a;
   }
   function artTris(mask, p) {
-    const t = []; prism(t, [rect(p.W, p.H, p.W / 2, p.H / 2)], 0, ART_BASE);
+    const t = [], [w, h] = artSize(p);
+    prism(t, [rect(w, h, w / 2, h / 2), cw(circle(15.4, w / 2, h / 2, 48))], 0, ART_BASE);
     const rings = contours(mask).map(r => r.map(q => [Math.round(q[0] * 1e3) / 1e3, Math.round(q[1] * 1e3) / 1e3]));
     prism(t, rings, ART_BASE, ART_TOP); return t;
   }
@@ -326,6 +330,6 @@ const Sombra = (() => {
     disc(N * .84, N * .13, 0); return a;
   }
 
-  return { N, G, WALL, BASE, ledZ, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
+  return { N, G, WALL, BASE, ledZ, tubeLen, artSize, TUBE_OD, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
 })();
 if (typeof module !== 'undefined') module.exports = Sombra;

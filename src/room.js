@@ -5,7 +5,7 @@ const Room = (() => {
   const LED = { quente: [1, .78, .52], frio: [.86, .93, 1], vermelho: [1, .16, .1], azul: [.2, .45, 1] };
   const WALLS = { branca: [.95, .93, .89], cinza: [.62, .63, .66], escura: [.2, .22, .3] };
   const s = { on: true, room: false, led: 'quente', wall: 'branca', theta: -.45, phi: 1.5, dist: 2.7, ready: false, dirty: true };
-  let cv, r, scene, cam, lamp, tex, tctx, timg, lux, ambient, bounce, glow, roomMats = [];
+  let cv, r, scene, cam, lamp, tex, tctx, timg, lux, ambient, bounce, glow, plates = [];
 
   const load = () => new Promise((ok, no) => { if (window.THREE) return ok(); const e = document.createElement('script'); e.src = 'vendor/three.min.js'; e.onload = ok; e.onerror = no; document.head.append(e); });
   const box = (w, h, d, x, y, z, color, parent) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({ color })); m.position.set(x, y, z); (parent || scene).add(m); return m; };
@@ -52,16 +52,19 @@ const Room = (() => {
   }
   function buildLamp(p, panels, art) {
     while (lamp.children.length) { const m = lamp.children.pop(); m.geometry.dispose(); m.material.dispose(); }
-    const W = Sombra.WALL, B = Sombra.BASE, black = 0x17171b;
+    plates = [];
+    const B = Sombra.BASE, black = 0x17171b, L = Sombra.ledZ(p);
     for (const n in panels) { const q = panels[n], d = q.def, H = (d.axis === 'y' ? p.H : p.W) / 2;
       lamp.add(mesh(Sombra.panelTris(q), (x, y, z) => { const v = (x - q.len / 2) * d.dir, c = d.s * (H - z); return d.axis === 'y' ? [v, c, B + y] : [c, v, B + y]; }, black)); }
-    lamp.add(mesh(Sombra.baseTris(p), (x, y, z) => [x, y, z], black));
-    lamp.add(mesh(Sombra.capTris(p), (x, y, z) => [x, y, p.D + 3 - z], black));
-    if (art) { const t = Sombra.artTris(art, p), lo = [], hi = [], top = Sombra.ART_BASE + .01;
-      for (let i = 0; i < t.length; i += 9) (Math.max(t[i + 2], t[i + 5], t[i + 8]) > top ? hi : lo).push(...t.slice(i, i + 9));
-      const map = (x, y, z) => [x - p.W / 2, y - p.H / 2, p.D + 3 + z];
-      lamp.add(mesh(lo, map, 0xece6d8)); lamp.add(mesh(hi, map, 0x141418)); }
-    glow.position.set(0, ALT, Sombra.ledZ(p) * .001);
+    const base = mesh(Sombra.baseTris(p), (x, y, z) => [x, y, z], art ? black : 0xd8d2c4); lamp.add(base); if (!art) plates.push(base);
+    const top = L + 7.5;
+    lamp.add(mesh(Sombra.capTris(), (x, y, z) => [x, y, top + 2.5 - z], 0xe9e5dc));
+    const tg = new THREE.CylinderGeometry(Sombra.TUBE_OD / 2, Sombra.TUBE_OD / 2, top - B, 32, 1, true);
+    const tube = new THREE.Mesh(tg, new THREE.MeshLambertMaterial({ color: 0xddeeff, transparent: true, opacity: .22, side: THREE.DoubleSide })); tube.rotation.x = Math.PI / 2; tube.position.z = (top + B) / 2; lamp.add(tube);
+    if (art) { const t = Sombra.artTris(art, p), lo = [], hi = [], lim = Sombra.ART_BASE + .01, [w, h] = Sombra.artSize(p);
+      for (let i = 0; i < t.length; i += 9) (Math.max(t[i + 2], t[i + 5], t[i + 8]) > lim ? hi : lo).push(...t.slice(i, i + 9));
+      const map = (x, y, z) => [x - w / 2, y - h / 2, B + z], pl = mesh(lo, map, 0xece6d8); lamp.add(pl); plates.push(pl); lamp.add(mesh(hi, map, 0x141418)); }
+    glow.position.set(0, ALT, L * .001);
   }
   function computeLux(p, panels) { lux = new Uint8Array(TW * TH); const mm = RW * 1000 / TW;
     for (let j = 0, o = 0; j < TH; j++) { const Y = (RH * 1000 * (.5 - j / TH)) + (RH * 500 - ALT * 1000);
@@ -70,7 +73,8 @@ const Room = (() => {
     for (let o = 0, q = 0; o < lux.length; o++, q += 4) { const l = lux[o] * k; d[q] = Math.min(255, 255 * w[0] * (amb + l * c[0])); d[q + 1] = Math.min(255, 255 * w[1] * (amb + l * c[1])); d[q + 2] = Math.min(255, 255 * w[2] * (amb + l * c[2])); d[q + 3] = 255; }
     tctx.putImageData(timg, 0, 0); tex.needsUpdate = true;
     ambient.intensity = s.room ? .8 : .05; scene.getObjectByName('top').visible = s.room;
-    bounce.intensity = s.on ? (s.room ? .15 : .55) : 0; bounce.color.setRGB(...c); glow.visible = s.on; }
+    bounce.intensity = s.on ? (s.room ? .15 : .55) : 0; bounce.color.setRGB(...c); glow.visible = s.on;
+    for (const m of plates) m.material.emissive.setRGB(...(s.on ? c.map(v => v * .85) : [0, 0, 0])); }
   function render() { if (!r) return; s.dist = Math.max(.25, Math.min(3.7, s.dist)); s.theta = Math.max(-1.35, Math.min(1.35, s.theta)); s.phi = Math.max(.5, Math.min(2.3, s.phi));
     const tx = 0, ty = ALT - .05, tz = .03; let x = tx + s.dist * Math.sin(s.phi) * Math.sin(s.theta), y = ty + s.dist * Math.cos(s.phi), z = tz + s.dist * Math.sin(s.phi) * Math.cos(s.theta);
     x = Math.max(-RW / 2 + .1, Math.min(RW / 2 - .1, x)); y = Math.max(.1, Math.min(RH - .1, y)); z = Math.max(.08, Math.min(RD - .1, z));
