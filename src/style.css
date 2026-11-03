@@ -58,3 +58,7 @@ canvas#room{display:block;width:100%;height:100%;touch-action:none}
 .roomBar select{grid-column:1/-1;width:100%;min-height:42px;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:0 8px;font:500 .9rem var(--body)}
 .roomBar .seg button{font-size:.82rem}
 .tools>.seg:first-child{flex-basis:100%}
+.sizes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sizes .btn{font-size:.8rem;padding:0 6px}
+.sizes .btn[aria-pressed="true"]{background:var(--led);border-color:var(--led);color:var(--led-ink)}
+footer{color:var(--dim);font-size:.78rem;text-align:center;padding-top:8px}

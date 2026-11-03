@@ -16,3 +16,7 @@ Site estático, sem etapa de build: `index.html` carrega `src/`. Para testar loc
 ## Créditos
 
 A moldura circular e as medidas iniciais da caixa foram inspiradas no [ShadowBox](https://github.com/Akirakato1/ShadowBox), de Akirakato1 (licença MIT).
+
+## Licença
+
+© 2026 Romario. Todos os direitos reservados. Veja `LICENSE`.

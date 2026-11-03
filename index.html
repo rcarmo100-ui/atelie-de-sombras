@@ -70,13 +70,23 @@
     <label class="check"><input type="checkbox" id="inv"> Inverter claro e escuro</label>
     <label class="check"><input type="checkbox" id="frame"> Moldura circular, com tudo escuro em volta</label>
     <div class="field"><label for="size">Tamanho da sombra na parede</label><output id="sizeOut"></output>
-      <input type="range" id="size" min="300" max="1200" step="10" value="900"></div>
+      <input type="range" id="size" min="300" max="1500" step="10" value="900"></div>
+    <div class="seg" role="group" aria-label="Medidas prontas da sombra">
+      <button data-shadow="600">60 cm</button><button data-shadow="800">80 cm</button><button data-shadow="1000">1 m</button><button data-shadow="1200">1,2 m</button><button data-shadow="1500">1,5 m</button>
+    </div>
+    <p id="detailNote"></p>
+    <button class="btn" id="fitBox">Escolher a caixa para esta sombra</button>
+    <p id="fitMsg" role="status"></p>
     <p>O escuro da imagem vira sombra. A árvore é só um exemplo: use uma imagem preto e branco ou desenhe com o Pincel na própria parede. Arraste para posicionar e use dois dedos para mudar o tamanho. A luminária deve ficar sobre uma parte escura do desenho, que assim a contorna.</p>
   </section>
 
   <section id="p2" hidden>
+    <h2>Medidas prontas (mm)</h2>
+    <div class="sizes" role="group" aria-label="Medidas prontas da caixa">
+      <button class="btn" data-box></button><button class="btn" data-box></button><button class="btn" data-box></button><button class="btn" data-box></button>
+    </div>
     <div class="field"><label for="w">Largura</label><output id="wOut"></output><input type="range" id="w" min="110" max="200" step="5" value="110"></div>
-    <div class="field"><label for="h">Altura</label><output id="hOut"></output><input type="range" id="h" min="120" max="200" step="5" value="155"></div>
+    <div class="field"><label for="h">Altura</label><output id="hOut"></output><input type="range" id="h" min="120" max="240" step="5" value="155"></div>
     <div class="field"><label for="d">Profundidade</label><output id="dOut"></output><input type="range" id="d" min="60" max="140" step="5" value="90"></div>
     <p id="ledNote"></p>
     <p>Quanto maior a caixa, mais detalhe cabe nos recortes. Detalhes perto da luminária saem nítidos e ficam mais grosseiros perto da borda da sombra, porque 1 mm da peça vira vários centímetros na parede.</p>
@@ -126,6 +136,7 @@
     <p>O LED esquenta e o PLA amolece perto de 60 °C. Teste antes de colar tudo e não deixe ligada sem supervisão até conferir a temperatura.</p>
     <p>Com a moldura, as colunas sustentam a faixa escura e ficam nas partes escuras do desenho sempre que possível. Sem a moldura, as paredes só existem onde há sombra.</p>
   </section>
+  <footer>© 2026 Romario · Ateliê de Sombras · Todos os direitos reservados</footer>
 </div>
 <script src="vendor/earcut.min.js"></script>
 <script src="src/core.js"></script>

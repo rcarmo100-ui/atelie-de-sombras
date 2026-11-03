@@ -1,0 +1,10 @@
+Copyright (c) 2026 Romario. Todos os direitos reservados.
+
+Este software, incluindo código, textos, interface e geometria das peças, é
+protegido por direitos autorais. É proibido copiar, modificar, distribuir,
+publicar, sublicenciar ou vender este software, no todo ou em parte, sem
+autorização prévia e por escrito do titular.
+
+Componentes de terceiros mantêm suas próprias licenças, em vendor/:
+- earcut (ISC), em vendor/earcut-LICENSE
+- three.js (MIT), em vendor/three-LICENSE

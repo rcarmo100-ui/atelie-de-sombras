@@ -1,4 +1,8 @@
-const $ = id => document.getElementById(id), N = Sombra.N, VIEW = 1200; // parede visível: 1 m
+const $ = id => document.getElementById(id), N = Sombra.N;
+let VIEW = 1200;
+const BOXES = [['Pequena', 110, 125, 70], ['Média', 110, 155, 90], ['Grande', 150, 200, 120], ['Extra', 200, 200, 140]];
+const maxShadow = (W, H, D) => 2 * Math.sqrt(45 * Math.min(W, H) / 2 * (D - 2));
+const edgeCm = p => (p.S / 2) ** 2 / (Math.min(p.W, p.H) / 2 * Sombra.ledZ(p)) / 10; // parede visível: 1 m
 const st = { gray: null, edit: new Int8Array(N * N), sil: new Uint8Array(N * N), panels: null, tool: 'move', view: 'wall', undo: [], busy: 0,
   p: { W: 110, H: 155, D: 90, S: 900, ox: 0, oy: 0, frame: false }, thr: 128, inv: false, preview: false };
 const cv = $('wall'), ctx = cv.getContext('2d', { willReadFrequently: true }), R = cv.width, img = ctx.createImageData(R, R);
@@ -75,8 +79,14 @@ function partsList() {
   html += `<li>Caixa da base<span>${p.W}×${p.H}×25 mm · ${b} g</span></li><li>Tampo<span>${p.W}×${p.H} mm · ${t} g</span></li><li>Portinhola das pilhas<span>85×55 mm · ${ph} g</span></li><li>Suporte do LED<span>Ø16 mm · ${c} g</span></li><li>Tubo de acrílico (comprar)<span>Ø12×10 mm · corte ${Sombra.tubeLen(p).toFixed(0)} mm</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
   $('parts').innerHTML = html;
 }
+function setBox(W, H, D) { Object.assign(st.p, { W, H, D }); $('w').value = W; $('h').value = H; $('d').value = D; labels(); if (art.bmp) artMask(); rebuild(); }
+function setShadow(S) { st.p.S = S; $('size').value = S; labels(); rebuild(); }
 function labels() {
-  const p = st.p; $('thrOut').textContent = st.thr; $('sizeOut').textContent = (p.S / 10).toFixed(0) + ' cm'; $('wOut').textContent = p.W + ' mm'; $('hOut').textContent = p.H + ' mm'; $('dOut').textContent = p.D + ' mm'; $('brushOut').textContent = $('brush').value + ' mm';
+  const p = st.p; VIEW = Math.max(1200, p.S * 1.3); $('thrOut').textContent = st.thr; $('sizeOut').textContent = (p.S / 10).toFixed(0) + ' cm'; $('wOut').textContent = p.W + ' mm'; $('hOut').textContent = p.H + ' mm'; $('dOut').textContent = p.D + ' mm'; $('brushOut').textContent = $('brush').value + ' mm';
+  const e = edgeCm(p), ok = p.S <= maxShadow(p.W, p.H, p.D) * 1.02;
+  $('detailNote').textContent = `Na borda da sombra, 1 mm da parede da caixa vira cerca de ${e.toFixed(1).replace('.', ',')} cm. ` + (ok ? 'Boa medida para este tamanho.' : 'Para ter mais detalhe, aumente a caixa ou diminua a sombra.'); $('detailNote').className = ok ? '' : 'warn';
+  document.querySelectorAll('[data-shadow]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.shadow === p.S));
+  document.querySelectorAll('[data-box]').forEach((b, i) => { const q = BOXES[i]; b.setAttribute('aria-pressed', q[1] === p.W && q[2] === p.H && q[3] === p.D); });
   $('ledNote').textContent = `O LED fica a ${Sombra.ledZ(p)} mm da parede, na ponta de um tubo transparente de ${Sombra.tubeLen(p).toFixed(0)} mm.`;
 }
 function setGray(a) { st.gray = a; st.edit.fill(0); st.undo = []; $('undo').disabled = true; compose(); rebuild(true); }
@@ -117,6 +127,9 @@ $('sample').onclick = loadTree;
 $('thr').oninput = e => { st.thr = +e.target.value; labels(); compose(); rebuild(); };
 $('inv').onchange = e => { st.inv = e.target.checked; compose(); rebuild(); };
 $('frame').onchange = e => { st.p.frame = e.target.checked; rebuild(); };
+document.querySelectorAll('[data-shadow]').forEach(b => b.onclick = () => setShadow(+b.dataset.shadow));
+document.querySelectorAll('[data-box]').forEach((b, i) => { const q = BOXES[i]; b.textContent = `${q[0]} ${q[1]}×${q[2]}×${q[3]}`; b.onclick = () => { setBox(q[1], q[2], q[3]); setShadow(Math.round(maxShadow(q[1], q[2], q[3]) / 50) * 50 > 1500 ? 1500 : Math.round(maxShadow(q[1], q[2], q[3]) / 50) * 50); }; });
+$('fitBox').onclick = () => { const q = BOXES.find(b => maxShadow(b[1], b[2], b[3]) >= st.p.S * .98) || BOXES[3]; setBox(q[1], q[2], q[3]); $('fitMsg').textContent = `Caixa ${q[0].toLowerCase()} escolhida para a sombra de ${Math.round(st.p.S / 10)} cm.`; };
 $('size').oninput = e => { st.p.S = +e.target.value; labels(); rebuild(); };
 for (const [id, k] of [['w', 'W'], ['h', 'H'], ['d', 'D']]) $(id).oninput = e => { st.p[k] = +e.target.value; labels(); if (art.bmp) artMask(); rebuild(); };
 $('brush').oninput = labels;
@@ -156,7 +169,7 @@ cv.addEventListener('pointerdown', e => { if (st.view !== 'wall') return; cv.set
   if (ptrs.size === 2 && st.tool === 'move') { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), s: st.p.S }; } });
 cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const q = toWall(e); ptrs.set(e.pointerId, q);
   if (st.tool !== 'move') { stamp(last, q); last = q; st.preview = true; drawWall(); return; }
-  if (ptrs.size === 2 && pinch) { const [a, b] = [...ptrs.values()]; st.p.S = Math.max(300, Math.min(1200, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d)) | 0; $('size').value = st.p.S; labels(); }
+  if (ptrs.size === 2 && pinch) { const [a, b] = [...ptrs.values()]; st.p.S = Math.max(300, Math.min(1500, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d)) | 0; $('size').value = st.p.S; labels(); }
   else if (ptrs.size === 1) { st.p.ox += q[0] - last[0]; st.p.oy += q[1] - last[1]; last = q; }
   st.preview = true; drawWall(); });
 const up = e => { if (!ptrs.delete(e.pointerId)) return; if (ptrs.size < 2) pinch = null; if (!ptrs.size) rebuild(); };
