@@ -62,3 +62,25 @@ canvas#room{display:block;width:100%;height:100%;touch-action:none}
 .sizes .btn{font-size:.8rem;padding:0 6px}
 .sizes .btn[aria-pressed="true"]{background:var(--led);border-color:var(--led);color:var(--led-ink)}
 footer{color:var(--dim);font-size:.78rem;text-align:center;padding-top:8px}
+.slim{min-height:34px;padding:0 10px;font-size:.82rem}
+header{flex-wrap:wrap}header h1{flex:1 1 auto;min-width:0}
+.manual{max-width:680px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 40px;display:flex;flex-direction:column;gap:16px}
+.manual .top{position:sticky;top:env(safe-area-inset-top,0px);background:var(--room);display:flex;justify-content:space-between;align-items:center;gap:8px;padding-block:8px;z-index:5}
+.manual h1{font-size:1.3rem}.manual h3{font:600 1rem var(--display);margin:0;color:var(--led)}
+.manual .buy{display:flex;flex-direction:column}
+.manual .buy label{display:grid;grid-template-columns:24px 1fr;gap:8px;padding:9px 0;border-top:1px solid var(--line);font-size:.92rem}
+.manual .buy small{display:block;color:var(--dim);font-size:.8rem}
+.manual .buy input{width:20px;height:20px;accent-color:var(--led);margin:1px 0 0}
+.mstep{background:var(--panel);border-radius:8px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.mstep h2 span{color:var(--led);font-family:var(--mono);font-size:.85rem;margin-right:6px}
+.mstep svg{width:100%;height:auto;background:#191821;border-radius:6px;display:block}
+.mstep ul{margin:0;padding-left:20px;color:var(--ink);font-size:.92rem;display:flex;flex-direction:column;gap:6px}
+.mstep .warnbox{color:var(--warn);font-size:.86rem;margin:0;max-width:none}
+.mstep .pill{font:500 .75rem var(--mono);color:var(--dim)}
+@media (prefers-reduced-motion:no-preference){
+.a-up{animation:aUp 3s ease-in-out infinite}.a-dn{animation:aDn 3s ease-in-out infinite}.a-rt{animation:aRt 3s ease-in-out infinite}.a-lf{animation:aLf 3s ease-in-out infinite}.a-pulse{animation:aP 1.6s ease-in-out infinite}.a-flow{stroke-dasharray:7 7;animation:aF 1s linear infinite}
+@keyframes aUp{0%,15%{transform:translateY(34px);opacity:.15}60%,100%{transform:none;opacity:1}}
+@keyframes aDn{0%,15%{transform:translateY(-34px);opacity:.15}60%,100%{transform:none;opacity:1}}
+@keyframes aRt{0%,15%{transform:translateX(-40px);opacity:.15}60%,100%{transform:none;opacity:1}}
+@keyframes aLf{0%,15%{transform:translateX(40px);opacity:.15}60%,100%{transform:none;opacity:1}}
+@keyframes aP{50%{opacity:.35}}@keyframes aF{to{stroke-dashoffset:-14}}}

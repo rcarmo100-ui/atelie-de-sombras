@@ -262,7 +262,7 @@ const Sombra = (() => {
     const ring = [rect(p.W, p.H), cw(rect(2 * i, 2 * j))];
     const gapRight = [[-w, -h], [w, -h], [w, -9.5], [i, -9.5], [i, -j], [-i, -j], [-i, j], [i, j], [i, 9.5], [w, 9.5], [w, h], [-w, h]];
     prism(t, ring, F, 7.5); prism(t, [gapRight], 7.5, 20.5); prism(t, ring, 20.5, T);
-    for (const q of posts(p)) prism(t, [circle(5, q[0], q[1], 20), cw(circle(1.7, q[0], q[1], 16))], F, T);
+    for (const q of posts(p)) { prism(t, [circle(5, q[0], q[1], 20), cw(circle(3, q[0], q[1], 20))], F, 7); prism(t, [circle(5, q[0], q[1], 20), cw(circle(1.7, q[0], q[1], 16))], 7, T); }
     for (const q of hatchScrews(p)) prism(t, [circle(3.5, q[0], q[1], 20), cw(circle(.9, q[0], q[1], 14))], F, 9);
     return t;
   }
@@ -276,8 +276,8 @@ const Sombra = (() => {
   /* tampo da caixa: recebe a estampa, a aba dos painéis e o anel do tubo */
   function plateTris(p) {
     const t = [], [ins, inh] = lipSize(p);
-    prism(t, [rect(p.W, p.H), cw(circle(3.5, 0, 0, 20)), ...posts(p).map(q => cw(circle(1.3, q[0], q[1], 16)))], 0, 1.5);
-    prism(t, [rect(p.W, p.H), cw(circle(3.5, 0, 0, 20))], 1.5, 3);
+    prism(t, [rect(p.W, p.H), cw(circle(3.5, 0, 0, 20)), ...posts(p).map(q => cw(circle(1.3, q[0], q[1], 16)))], 0, 2);
+    prism(t, [rect(p.W, p.H), cw(circle(3.5, 0, 0, 20))], 2, 3);
     prism(t, [rect(ins, inh), cw(rect(ins - 3.2, inh - 3.2))], 3, 6);
     prism(t, [circle(8.5, 0, 0, 40), cw(circle(TUBE_OD / 2 + .2, 0, 0, 40))], 3, 9);
     return t;
