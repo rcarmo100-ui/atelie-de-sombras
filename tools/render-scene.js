@@ -1,6 +1,6 @@
 /* Renderiza as imagens do manual a partir das peças reais do projeto aberto no ateliê. */
 window.Shots = (() => {
-  const p = st.p, W = 960, H = 720, B = Sombra.BASE, L = Sombra.ledZ(p), top = L + 7.5;
+  const p = st.p, W = 960, H = 720, B = Sombra.BASE, L = Sombra.ledZ(p), top = L + 11;
   const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const r = new THREE.WebGLRenderer({ canvas: cv, antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H, false);
   r.shadowMap.enabled = true; r.shadowMap.type = THREE.PCFSoftShadowMap; r.outputEncoding = THREE.sRGBEncoding; r.toneMapping = THREE.ACESFilmicToneMapping; r.toneMappingExposure = .92;
@@ -11,8 +11,7 @@ window.Shots = (() => {
   const cyl = (rt, h, m, seg = 32) => { const o = new THREE.Mesh(new THREE.CylinderGeometry(rt, rt, h, seg), m); o.castShadow = true; return o; };
   const block = (x, y, z, m) => { const o = new THREE.Mesh(new THREE.BoxGeometry(x, y, z), m); o.castShadow = true; o.receiveShadow = true; return o; };
   const glass = () => new THREE.MeshPhysicalMaterial({ color: 0xdcecff, roughness: .08, metalness: 0, transparent: true, opacity: .32, side: THREE.DoubleSide });
-  const tube = () => { const o = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, top - B, 40, 1, true), glass()); return o; };
-  const led = () => { const g = new THREE.Group(); const b = cyl(4, 1.4, mat(0xd8d8dc, { metalness: .6 })); b.rotation.x = Math.PI / 2; g.add(b); const e = block(2.8, 2.8, 1, mat(0xffe24d)); e.position.z = -1; g.add(e); return g; };
+  const led = () => { const g = new THREE.Group(); const m = new THREE.MeshPhysicalMaterial({ color: 0xfff6d8, roughness: .2, transparent: true, opacity: .75 }); const b = cyl(4, 6, m); b.rotation.x = Math.PI / 2; g.add(b); const r = cyl(4.5, 1, m); r.rotation.x = Math.PI / 2; r.position.z = 3; g.add(r); const d = new THREE.Mesh(new THREE.SphereGeometry(4, 20, 12), m); d.position.z = -3; g.add(d); for (const x of [-1.3, 1.3]) { const l = cyl(.3, 6, mat(0xc8c8cc, { metalness: .8 }), 8); l.rotation.x = Math.PI / 2; l.position.set(x, 0, 6); g.add(l); } return g; };
   const screw = (len, r0) => { const g = new THREE.Group(), m = mat(0x9aa0a8, { metalness: .9, roughness: .3 }); const s = cyl(r0, len, m, 14); g.add(s); const h = cyl(r0 * 1.8, r0 * 1.2, m, 18); h.position.y = len / 2; g.add(h); return g; };
   const wire = (pts, c) => { const v = pts.map(q => new THREE.Vector3(...q)); const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(v), 80, .8, 8), mat(c)); m.castShadow = true; return m; };
   const holder = () => { const g = new THREE.Group(); const b = block(58, 48, 16, mat(0x202024)); g.add(b); for (const y of [-15.5, 0, 15.5]) { const a = cyl(7, 50, mat(0x2d6b4f, { metalness: .2 }), 24); a.rotation.z = Math.PI / 2; a.position.set(0, y, 8); g.add(a); const c = cyl(7.05, 6, mat(0xc8c8cc, { metalness: .8 }), 24); c.rotation.z = Math.PI / 2; c.position.set(24, y, 8); g.add(c); } return g; };
@@ -28,9 +27,10 @@ window.Shots = (() => {
     const box = mesh(Sombra.boxTris(p)); box.position.z = -out('box'); G.add(box);
     const pl = mesh(Sombra.plateTris(p)); pl.position.z = B - 3 + out('plate'); G.add(pl);
     for (const n in P) { const q = P[n], m = mesh(Sombra.panelTris(q), null, mapPanel(q)), d = q.def, sh = out('wall') * d.s; m.position.set(d.axis === 'x' ? sh : 0, d.axis === 'y' ? sh : 0, B + out('wallZ')); G.add(m); }
-    const t = tube(); t.rotation.x = Math.PI / 2; t.position.z = (top + B) / 2 + out('tube'); G.add(t);
-    const c = mesh(Sombra.capTris(), mat(0xe8e4da), (x, y, z) => [x, y, top + 2.5 - z]); c.position.z = out('cap'); G.add(c);
-    const l = led(); l.position.z = L + 1 + out('cap'); G.add(l);
+    const po = Sombra.postTris(p), z0 = L - Sombra.GAP - Sombra.postLen(p) + out('tube'), pst = mesh(po, null, (x, y, z) => [x, y, z0 + z]); G.add(pst);
+    const sl = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.4, 16, 32, 1, true), glass()); sl.rotation.x = Math.PI / 2; sl.position.z = L - Sombra.GAP + 8 + out('tube'); G.add(sl);
+    const l = led(); l.position.z = L + out('tube'); G.add(l);
+    const c = mesh(Sombra.capTris(), null, (x, y, z) => [x, y, top - z]); c.position.z = out('cap'); G.add(c);
     if (art.mask) { const t = Sombra.artTris(art.mask, p), lo = [], hi = [], lim = Sombra.ART_BASE + .01, [w, h] = Sombra.artSize(p);
       for (let i = 0; i < t.length; i += 9) (Math.max(t[i + 2], t[i + 5], t[i + 8]) > lim ? hi : lo).push(...t.slice(i, i + 9));
       const m = (x, y, z) => [x - w / 2, y - h / 2, B + z + out('plate')]; G.add(mesh(lo, mat(0xf2ede2), m)); G.add(mesh(hi, PLA(), m)); }
@@ -50,31 +50,30 @@ window.Shots = (() => {
       const add = (g, x, z, t) => { s.add(place(g, x, z)); lb.push([t, [x, 8, z]]); };
       add(flat(Sombra.boxTris(p)), -255, -120, 'Caixa da base');
       add(flat(Sombra.plateTris(p), PLA()), -115, -120, 'Tampo');
-      add(flat(Sombra.hatchTris()), 20, -170, 'Portinhola'); add(flat(Sombra.capTris(), mat(0xe8e4da)), 22, -85, 'Suporte do LED');
+      add(flat(Sombra.hatchTris()), 20, -170, 'Portinhola'); add(flat(Sombra.capTris()), -30, -85, 'Tampinha'); { const g = new THREE.Group(), o = mesh(Sombra.postTris(p)); o.rotation.y = Math.PI / 2; o.position.z = 0; g.add(o); s.add(place(g, 30, -85, 5)); lb.push(['Haste', [65, 16, -85]]); }
       const f = (n, x, z, lbl) => { const q = P[n], g = flat(Sombra.panelTris(q)); s.add(place(g, x - q.len / 2, z)); lb.push([lbl, [x, 8, z - q.Pz / 2]]); };
       f('superior', -160, 90, 'Painel superior'); f('inferior', 30, 90, 'Painel inferior'); f('esquerdo', -160, 190, 'Painel esquerdo'); f('direito', 30, 190, 'Painel direito');
       return snap(s, cam(-60, 500, 420, -65, 0, 40, 34), lb); },
     externos() { const s = studio(), lb = [], add = (o, x, z, t, y = 6) => { o.position.set(x, y, z); s.add(o); lb.push([t, [x, y + 14, z]]); };
-      const t = new THREE.Mesh(new THREE.CylinderGeometry(6, 6, 68, 32, 1, true), glass()); t.rotation.z = Math.PI / 2; add(t, -130, -70, 'Tubo de acrílico', 7);
+      const t = block(27, .4, 15, glass()); add(t, -130, -70, 'Tira de PET', 1);
       const h = holder(); h.rotation.x = -Math.PI / 2; add(h, 40, -80, 'Suporte de pilhas', 4);
       const l = led(); l.rotation.x = Math.PI / 2; add(l, -160, 20, 'LED 1 W', 3); const a = sw(); a.rotation.x = -Math.PI / 2; add(a, -70, 20, 'Interruptor', 18); const e = resistor(); add(e, 10, 20, 'Resistor 10 Ω', 2);
-      const m3 = screw(20, 1.5); m3.rotation.z = Math.PI / 2; add(m3, 90, 20, 'M3 × 20', 3); const m2 = screw(6, 1); m2.rotation.z = Math.PI / 2; add(m2, 150, 20, 'M2 × 6', 2);
+      const m3 = screw(30, 1.7); m3.rotation.z = Math.PI / 2; add(m3, 110, 20, 'Parafuso de parede', 3);
       s.add(wire([[-170, 1, 90], [-120, 1, 70], [-60, 1, 100], [0, 1, 80]], 0xc0392b)); s.add(wire([[-170, 1, 100], [-120, 1, 80], [-60, 1, 110], [0, 1, 90]], 0x181818)); lb.push(['Fios', [-80, 16, 100]]);
       return snap(s, cam(-5, 250, 260, -5, 0, 10, 32), lb); },
-    tubo() { const s = studio(), t = tube(); t.rotation.z = Math.PI / 2; t.position.y = 7; s.add(t); const c = mesh(Sombra.capTris(), mat(0xe8e4da), (x, y, z) => [z, y, x]); c.position.set((top - B) / 2 + 22, 7, 0); s.add(c); const l = led(); l.rotation.y = Math.PI / 2; l.position.set((top - B) / 2 + 12, 7, 0); s.add(l);
-      s.add(wire([[(top - B) / 2 + 8, 8, 1], [20, 8, 2], [-40, 8, 1], [-70, 8, 2], [-100, 2, 16]], 0xc0392b)); s.add(wire([[(top - B) / 2 + 8, 6, -1], [20, 6, 0], [-40, 6, -1], [-70, 6, 0], [-100, 2, 26]], 0x181818));
-      return snap(s, cam(20, 55, 118, 12, 5, 0, 30), [['LED colado no suporte', [(top - B) / 2 + 14, 20, 0]], ['Fios por dentro do tubo', [-20, 18, 0]]]); },
-    tampo() { const s = studio(), g = new THREE.Group(); const pl = mesh(Sombra.plateTris(p)); g.add(pl); const t = tube(); t.rotation.x = Math.PI / 2; t.position.z = (top - B) / 2 + 3; g.add(t); const c = mesh(Sombra.capTris(), mat(0xe8e4da), (x, y, z) => [x, y, top - B + 5.5 - z]); g.add(c); up(g); s.add(g);
-      return snap(s, cam(90, 120, 165, 0, 34, 0, 30), [['Tubo no anel do tampo', [0, 45, 0]]]); },
+    tubo() { const s = studio(), H0 = Sombra.postLen(p), g = new THREE.Group(); g.add(mesh(Sombra.postTris(p))); const sl = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.4, 16, 32, 1, true), glass()); sl.rotation.x = Math.PI / 2; sl.position.z = H0 + 6; g.add(sl); const l = led(); l.position.z = H0 + 12; g.add(l); const c = mesh(Sombra.capTris(), null, (x, y, z) => [x, y, H0 + 42 - z]); g.add(c); up(g); s.add(g);
+      return snap(s, cam(60, 75, 190, 0, H0 * .72, 0, 30), [['Tampinha', [0, H0 + 40, 0], 150, 0], ['LED no anel de PET', [0, H0 + 10, 0], 170, 0], ['Haste impressa', [0, H0 * .5, 0], 150, 0]]); },
+    tampo() { const s = studio(), g = new THREE.Group(); const pl = mesh(Sombra.plateTris(p)); g.add(pl); up(g); s.add(g);
+      return snap(s, cam(90, 150, 170, 0, 8, 0, 30), [['Fendas únicas de cada painel', [0, 8, -p.H / 2 + 2]], ['Anel da haste', [0, 22, 0]], ['Presilhas do tampo', [p.W / 2 + 3, 10, p.H * .4]]]); },
     caixa() { const s = studio(), g = new THREE.Group(); const b = mesh(Sombra.boxTris(p)); g.add(b); const a = sw(); a.rotation.y = Math.PI / 2; a.position.set(p.W / 2 + 1, 0, 14); g.add(a); const h = holder(); h.rotation.y = Math.PI; h.position.set(0, -p.H / 4, 12); g.add(h); g.rotation.x = -Math.PI / 2; s.add(g);
       return snap(s, cam(30, 215, 130, 0, 0, 8, 30), [['Interruptor na janela lateral', [p.W / 2, 34, 0]], ['Suporte de pilhas', [0, 44, p.H / 4]]]); },
-    fechar() { const s = studio(), g = assembled({ plate: 34, wall: 0, wallZ: 200, tube: 400, cap: 500 }); g.children.splice(2, 7); const sc = [-1, 1].flatMap(x => [-1, 1].map(y => { const q = screw(20, 1.5); q.rotation.x = -Math.PI / 2; q.position.set(x * (p.W / 2 - 8), y * (p.H / 2 - 8), -38); return q; })); sc.forEach(q => g.add(q)); up(g); s.add(g); g.position.y = 50;
-      return snap(s, cam(150, 170, 215, 0, 55, 0, 30), [['Tampo', [0, 118, 0]], ['Caixa', [p.W / 2 + 10, 70, 0]]]); },
+    fechar() { const s = studio(), g = new THREE.Group(); g.add(mesh(Sombra.boxTris(p))); const pl = mesh(Sombra.plateTris(p)); pl.position.z = 58; g.add(pl); up(g); s.add(g);
+      return snap(s, cam(150, 170, 215, 0, 40, 0, 30), [['Tampo', [0, 66, 0]], ['Presilhas', [p.W / 2 + 3, 32, 0], 40, 0], ['Caixa', [0, 12, p.H / 2], 0, 0]]); },
     paineis() { const s = studio(), g = assembled({ wall: 30 }); up(g); s.add(g);
       return snap(s, cam(140, 225, 235, 0, 35, 0, 30)); },
     pronta() { const s = studio(), g = assembled(); up(g); s.add(g);
       return snap(s, cam(130, 170, 215, 0, 36, 0, 30)); },
-    traseira() { const s = studio(), g = assembled(); g.rotation.x = Math.PI / 2; g.position.y = 95; s.add(g); const h = mesh(Sombra.hatchTris()); h.rotation.x = Math.PI / 2; h.position.set(0, 128, -p.H / 4 + 0); s.add(h); return snap(s, cam(90, 240, 150, 0, 90, -10, 30), [['Portinhola das pilhas', [0, 145, p.H / 4 - 60]]]); },
+    traseira() { const s = studio(), g = assembled(); g.rotation.x = Math.PI / 2; g.position.y = 95; s.add(g); const h = mesh(Sombra.hatchTris()); h.rotation.x = Math.PI / 2; h.position.set(0, 128, -p.H / 4 + 0); h.position.y = 128; s.add(h); return snap(s, cam(90, 240, 150, 0, 90, -10, 30), [['Portinhola das pilhas', [0, 145, p.H / 4 - 60]]]); },
     frame(k, ang) { const s = studio(), f = v => Math.max(0, Math.min(1, v)), ease = v => v * v * (3 - 2 * v), q = n => 1 - ease(f((k - n) / .17));
       const g = assembled({ box: 0, plate: 70 * q(.05), wall: 60 * q(.45), wallZ: 110 * q(.45), tube: 130 * q(.25), cap: 170 * q(.25) }); up(g); g.rotation.z = ang; s.add(g); return snap(s, cam(205, 300, 350, 0, 62, 0, 30)); },
     parede() { const s = new THREE.Scene(); s.background = new THREE.Color(0x0a0a0c); s.add(new THREE.AmbientLight(0xffffff, .1)); const c = document.createElement('canvas'); c.width = 1400; c.height = 1050; const x = c.getContext('2d'), im = x.createImageData(1400, 1050), mm = 2;

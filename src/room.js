@@ -58,10 +58,9 @@ const Room = (() => {
       lamp.add(mesh(Sombra.panelTris(q), (x, y, z) => { const v = (x - q.len / 2) * d.dir, c = d.s * (H - z); return d.axis === 'y' ? [v, c, B + y] : [c, v, B + y]; }, black)); }
     lamp.add(mesh(Sombra.boxTris(p), (x, y, z) => [x, y, z], black));
     const plate = mesh(Sombra.plateTris(p), (x, y, z) => [x, y, B - 3 + z], art ? black : 0xd8d2c4); lamp.add(plate); if (!art) plates.push(plate);
-    const top = L + 7.5;
-    lamp.add(mesh(Sombra.capTris(), (x, y, z) => [x, y, top + 2.5 - z], 0xe9e5dc));
-    const tg = new THREE.CylinderGeometry(Sombra.TUBE_OD / 2, Sombra.TUBE_OD / 2, top - B, 32, 1, true);
-    const tube = new THREE.Mesh(tg, new THREE.MeshLambertMaterial({ color: 0xddeeff, transparent: true, opacity: .22, side: THREE.DoubleSide })); tube.rotation.x = Math.PI / 2; tube.position.z = (top + B) / 2; lamp.add(tube);
+    lamp.add(mesh(Sombra.postTris(p), (x, y, z) => [x, y, L - Sombra.GAP - Sombra.postLen(p) + z], black));
+    const sl = new THREE.Mesh(new THREE.CylinderGeometry(4.4, 4.4, 16, 28, 1, true), new THREE.MeshLambertMaterial({ color: 0xddeeff, transparent: true, opacity: .25, side: THREE.DoubleSide })); sl.rotation.x = Math.PI / 2; sl.position.z = L - Sombra.GAP + 8; lamp.add(sl);
+    lamp.add(mesh(Sombra.capTris(), (x, y, z) => [x, y, L + 11 - z], black));
     if (art) { const t = Sombra.artTris(art, p), lo = [], hi = [], lim = Sombra.ART_BASE + .01, [w, h] = Sombra.artSize(p);
       for (let i = 0; i < t.length; i += 9) (Math.max(t[i + 2], t[i + 5], t[i + 8]) > lim ? hi : lo).push(...t.slice(i, i + 9));
       const map = (x, y, z) => [x - w / 2, y - h / 2, B + z], pl = mesh(lo, map, 0xece6d8); lamp.add(pl); plates.push(pl); lamp.add(mesh(hi, map, 0x141418)); }

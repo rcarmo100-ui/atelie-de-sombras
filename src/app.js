@@ -20,7 +20,7 @@ function drawWall() {
       const r2 = (X * X + Y * Y) / (260 * 260), lux = dark ? 0 : 1 / (1 + r2 * .55);
       d[o] = 14 + 232 * lux; d[o + 1] = 13 + 200 * lux; d[o + 2] = 18 + 146 * lux; d[o + 3] = 255; } }
   ctx.putImageData(img, 0, 0);
-  const w = p.W / mm, h = p.H / mm, x = R / 2 - w / 2, y = R / 2 - h / 2;
+  const w = (p.W + 2 * Sombra.FL) / mm, h = (p.H + 2 * Sombra.FL) / mm, x = R / 2 - w / 2, y = R / 2 - h / 2;
   ctx.fillStyle = '#efe3cc'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#6a6578'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
   ctx.fillStyle = '#4a4656'; ctx.font = '500 20px "IBM Plex Mono",monospace'; ctx.textAlign = 'center';
   ctx.fillText(`${p.W}×${p.H}`, R / 2, R / 2 + 7);
@@ -55,7 +55,7 @@ function drawFront() { ctx.fillStyle = '#16151d'; ctx.fillRect(0, 0, R, R); cons
   const q = art.mask; if (!q) { ctx.fillStyle = '#6a6578'; ctx.font = '500 22px "IBM Plex Mono",monospace'; ctx.fillText('sem estampa', R / 2, R / 2 + 8); return; }
   const c = document.createElement('canvas'); c.width = q.nx; c.height = q.ny; const g = c.getContext('2d'), im = g.createImageData(q.nx, q.ny);
   for (let j = 0; j < q.ny; j++) for (let i = 0; i < q.nx; i++) { const o = (j * q.nx + i) * 4, on = q.a[(q.ny - 1 - j) * q.nx + i]; im.data[o] = 22; im.data[o + 1] = 21; im.data[o + 2] = 29; im.data[o + 3] = on ? 255 : 0; }
-  g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); ctx.fillStyle = '#16151d'; ctx.beginPath(); ctx.arc(R / 2, R / 2, 8.9 * s, 0, 7); ctx.fill(); }
+  g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); ctx.fillStyle = '#16151d'; ctx.beginPath(); ctx.arc(R / 2, R / 2, 6.8 * s, 0, 7); ctx.fill(); }
 function artChanged() { artMask(); Room.dirty(); $('artThrOut').textContent = art.thr; if (art.bmp) { st.view = 'front'; viewButtons(); } draw(); partsList(); }
 function viewButtons() { for (const [id, v] of [['vWall', 'wall'], ['vParts', 'parts'], ['vFront', 'front'], ['vRoom', 'room']]) $(id).setAttribute('aria-pressed', st.view === v);
   const room = st.view === 'room'; $('wall').hidden = room; $('room').hidden = !room; $('roomHint').hidden = !room; $('roomBar').hidden = !room; }
@@ -76,7 +76,7 @@ function partsList() {
   for (const n in q) { const g = grams(q[n].cells * G * G * Sombra.WALL); tot += g; html += `<li>Painel ${n}<span>${q[n].len.toFixed(0)}×${q[n].Pz} mm · ${g} g</span></li>`; }
   const b = grams((2 * (p.W + p.H) * 2 * 23 + p.W * p.H * 2) * 1.05), t = grams(p.W * p.H * 3 * 1.1), c = 1, ph = 4; tot += b + t + c + ph;
   let artLine = ''; if (art.mask) { const [aw, ah] = Sombra.artSize(p), g = grams(aw * ah * Sombra.ART_BASE + art.cells * G * G * (Sombra.ART_TOP - Sombra.ART_BASE)); tot += g; artLine = `<li>Estampa do fundo<span>${aw.toFixed(0)}×${ah.toFixed(0)} mm · ${g} g</span></li>`; }
-  html += `<li>Caixa da base<span>${p.W}×${p.H}×25 mm · ${b} g</span></li><li>Tampo<span>${p.W}×${p.H} mm · ${t} g</span></li><li>Portinhola das pilhas<span>85×55 mm · ${ph} g</span></li><li>Suporte do LED<span>Ø16 mm · ${c} g</span></li><li>Tubo de acrílico (comprar)<span>Ø12×10 mm · corte ${Sombra.tubeLen(p).toFixed(0)} mm</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
+  html += `<li>Caixa da base<span>${p.W + 7}×${p.H + 7}×25 mm · ${b} g</span></li><li>Tampo<span>${p.W + 7}×${p.H + 7} mm · ${t} g</span></li><li>Portinhola das pilhas<span>85×55 mm · ${ph} g</span></li><li>Haste<span>Ø8 × ${Sombra.postLen(p).toFixed(0)} mm · ${c} g</span></li><li>Tampinha<span>Ø13 mm · 1 g</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
   $('parts').innerHTML = html;
 }
 function setBox(W, H, D) { Object.assign(st.p, { W, H, D }); $('w').value = W; $('h').value = H; $('d').value = D; labels(); if (art.bmp) artMask(); rebuild(); }
@@ -87,7 +87,7 @@ function labels() {
   $('detailNote').textContent = `Na borda da sombra, 1 mm da parede da caixa vira cerca de ${e.toFixed(1).replace('.', ',')} cm. ` + (ok ? 'Boa medida para este tamanho.' : 'Para ter mais detalhe, aumente a caixa ou diminua a sombra.'); $('detailNote').className = ok ? '' : 'warn';
   document.querySelectorAll('[data-shadow]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.shadow === p.S));
   document.querySelectorAll('[data-box]').forEach((b, i) => { const q = BOXES[i]; b.setAttribute('aria-pressed', q[1] === p.W && q[2] === p.H && q[3] === p.D); });
-  $('ledNote').textContent = `O LED fica a ${Sombra.ledZ(p)} mm da parede, na ponta de um tubo transparente de ${Sombra.tubeLen(p).toFixed(0)} mm.`;
+  $('ledNote').textContent = `O LED fica a ${Sombra.ledZ(p)} mm da parede, acima da haste impressa.`;
 }
 function setGray(a) { st.gray = a; st.edit.fill(0); st.undo = []; $('undo').disabled = true; compose(); rebuild(true); }
 function loadTree() { const t = Sombra.tree(), g = new Uint8Array(N * N); for (let i = 0; i < N * N; i++) g[i] = t[i] ? 0 : 255; st.inv = false; $('inv').checked = false; st.thr = 128; $('thr').value = 128; st.p.ox = 0; st.p.oy = 40; labels(); setGray(g); }
@@ -188,10 +188,10 @@ function offerFile(blob, name, msg) { const url = URL.createObjectURL(blob), l =
 function buildParts() { const p = st.p, list = [];
   st.panels = st.panels || Sombra.buildAll(st.sil, p);
   for (const n in st.panels) list.push({ name: 'painel-' + n, tris: Sombra.panelTris(st.panels[n]) });
-  list.push({ name: 'caixa-base', tris: Sombra.boxTris(p) }, { name: 'tampo', tris: Sombra.plateTris(p) }, { name: 'portinhola-pilhas', tris: Sombra.hatchTris() }, { name: 'suporte-led', tris: Sombra.capTris() });
+  list.push({ name: 'caixa-base', tris: Sombra.boxTris(p) }, { name: 'tampo', tris: Sombra.plateTris(p) }, { name: 'portinhola-pilhas', tris: Sombra.hatchTris() }, { name: 'haste', tris: Sombra.postTris(p) }, { name: 'tampinha', tris: Sombra.capTris() });
   if (art.bmp && artMask()) list.push({ name: 'estampa-fundo', tris: Sombra.artTris(art.mask, p) });
   return list; }
-function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} mm, profundidade total ${p.D} mm, com a frente aberta. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nCorte um tubo de acrílico transparente de 12 mm de diâmetro externo e 10 mm interno com ${Sombra.tubeLen(p).toFixed(0)} mm.\nCole o LED na ponta do suporte, virado para a parede. Passe os fios pelo tubo e encaixe o suporte na ponta do tubo.\nEncaixe o tubo no anel do tampo e leve os fios para dentro da caixa pelo furo central.\nInstale o interruptor KCD1-11 na janela lateral. Cole um suporte para 3 pilhas AA na caixa, sobre a abertura. Ligue pilhas, interruptor, resistor de 10 ohm e LED em série.\nA troca de pilhas é feita pela portinhola de trás, presa com 2 parafusos M2.\nFeche o tampo com 4 parafusos M3 x 20 mm pela parte de trás da caixa.\nCole os painéis em volta da aba do tampo, com a faixa lisa embaixo; olhando de fora, com a borda livre para cima, o furinho fica à esquerda.\n${art.bmp ? `\nEstampa do fundo: comece com filamento claro e troque para o escuro na altura de 1,2 mm. Encaixe dentro da aba do tampo, em volta do anel do tubo.\n` : ''}`; }
+function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa de ${p.W} x ${p.H} mm, profundidade total de ${p.D} mm, frente aberta. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima em filamento preto opaco: 0,2 mm, bico 0,4, sem raft e sem suportes.\nA haste é impressa em pé, com brim.\nOs encaixes ainda precisam ser validados na sua impressora: imprima primeiro a caixa Pequena.\nMonte seguindo o manual no site.\n`; }
 async function exportAs(kind) { const msg = $('saveMsg'), btns = [$('saveZip'), $('saveStl')]; clearTimeout(timer); btns.forEach(b => b.disabled = true); msg.className = ''; msg.textContent = 'Gerando as peças…';
   await new Promise(r => setTimeout(r, 30));
   try { const parts = buildParts();
