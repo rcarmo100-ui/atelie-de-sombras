@@ -128,14 +128,39 @@ const Sombra = (() => {
     return false;
   }
 
+  /* fidelidade: sombra pedida × sombra real, dentro da área da imagem.
+     O que fica atrás da caixa conta: luz escondida ali é detalhe perdido. */
   function score(sil, panels, p) {
-    let inter = 0, uni = 0; const step = 8, L = ledZ(p), fb = 1 - BASE / L;
+    let inter = 0, uni = 0; const step = 8;
     for (let j = 0; j < N; j += step) for (let i = 0; i < N; i += step) {
-      const X = (i / (N - 1) - .5) * p.S + p.ox, Y = (.5 - j / (N - 1)) * p.S + p.oy;
-      if (Math.abs(X) * fb < p.W / 2 && Math.abs(Y) * fb < p.H / 2) continue;
-      const a = maskAt(sil, X, Y, p) > 127, b = blocked(panels, p, X, Y);
+      const fx = i / (N - 1) - .5, fy = .5 - j / (N - 1);
+      if (p.frame && fx * fx + fy * fy > .2475) continue;
+      const X = fx * p.S + p.ox, Y = fy * p.S + p.oy, a = sil[j * N + i] > 127, b = blocked(panels, p, X, Y);
       if (a || b) { uni++; if (a && b) inter++; } }
     return uni ? inter / uni : 1;
+  }
+
+  /* procura a posição da imagem com maior fidelidade; o tamanho não muda */
+  async function bestPosition(sil, p, onStep) {
+    const lim = p.S * .3, MAX = 18; let evals = 0;
+    const clamp = v => Math.max(-lim, Math.min(lim, v));
+    const full = async (ox, oy) => { const q = { ...p, ox, oy }, v = score(sil, buildAll(sil, q), q); evals++; if (onStep) await onStep(evals, MAX); return v; };
+    /* triagem rápida: a caixa deve cair sobre o escuro, cobrindo pouca luz */
+    const quick = (ox, oy) => { let dark = 0, n = 0;
+      for (let y = -1; y <= 1; y += .25) for (let x = -1; x <= 1; x += .25) {
+        const u = ((x * p.W / 2 - ox) / p.S + .5) * (N - 1) + .5 | 0, v = (.5 - (y * p.H / 2 - oy) / p.S) * (N - 1) + .5 | 0;
+        n++; if (u < 0 || v < 0 || u >= N || v >= N) dark += p.frame ? 1 : 0; else if (sil[v * N + u] > 127) dark++; }
+      return dark / n; };
+    const cand = [];
+    for (let i = -3; i <= 3; i++) for (let j = -3; j <= 3; j++) { const ox = i * lim / 3, oy = j * lim / 3; cand.push({ ox, oy, q: quick(ox, oy) - Math.hypot(ox, oy) / p.S * .15 }); }
+    cand.sort((a, b) => b.q - a.q);
+    let best = { ox: p.ox, oy: p.oy, v: await full(p.ox, p.oy) }; const start = best.v;
+    const seen = new Set([Math.round(p.ox) + ',' + Math.round(p.oy)]);
+    const tryAt = async (ox, oy) => { ox = clamp(ox); oy = clamp(oy); const k = Math.round(ox) + ',' + Math.round(oy); if (seen.has(k) || evals >= MAX) return; seen.add(k); const v = await full(ox, oy); if (v > best.v) best = { ox, oy, v }; };
+    for (const c of cand.slice(0, 6)) await tryAt(c.ox, c.oy);
+    for (let s = p.S / 16; s >= p.S / 64 && evals < MAX; s /= 2) { const { ox, oy } = best;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) await tryAt(ox + dx * s, oy + dy * s); }
+    return { ...best, start };
   }
 
   /* contornos por marching squares; sólido sempre à esquerda do traço */
@@ -286,6 +311,6 @@ const Sombra = (() => {
     disc(N * .84, N * .13, 0); return a;
   }
 
-  return { N, G, WALL, BASE, ledZ, maskAt, merge, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
+  return { N, G, WALL, BASE, ledZ, maskAt, merge, bestPosition, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
 })();
 if (typeof module !== 'undefined') module.exports = Sombra;

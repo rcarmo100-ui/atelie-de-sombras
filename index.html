@@ -27,7 +27,10 @@
       <button id="tErase" aria-pressed="false">Borracha</button>
     </div>
     <button class="btn" id="undo" disabled>Desfazer</button>
+    <button class="btn" id="best">Melhor fidelidade</button>
+    <button class="btn" id="bestUndo" hidden>Voltar posição</button>
   </div>
+  <p id="bestMsg" role="status"></p>
   <div class="field" id="brushField" hidden>
     <label for="brush">Tamanho do pincel</label><output id="brushOut"></output>
     <input type="range" id="brush" min="4" max="60" value="16">

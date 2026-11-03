@@ -127,6 +127,15 @@ cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; co
 const up = e => { if (!ptrs.delete(e.pointerId)) return; if (ptrs.size < 2) pinch = null; if (!ptrs.size) rebuild(); };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 
+let lastPos = null;
+$('best').onclick = async () => { const b = $('best'), p = st.p; clearTimeout(timer); b.disabled = true; $('bestUndo').hidden = true; const before = { ox: p.ox, oy: p.oy };
+  try { const r = await Sombra.bestPosition(st.sil, p, async (n, max) => { $('bestMsg').textContent = `Testando posições: ${n} de ${max}…`; await new Promise(f => setTimeout(f, 0)); });
+    const moved = Math.round(Math.hypot(r.ox - before.ox, r.oy - before.oy) / 10);
+    if (r.v > r.start + .002) { p.ox = r.ox; p.oy = r.oy; lastPos = before; $('bestUndo').hidden = false; $('bestMsg').textContent = `Fidelidade subiu de ${Math.round(r.start * 100)}% para ${Math.round(r.v * 100)}%. A imagem moveu ${moved} cm.`; rebuild(true); }
+    else { $('bestMsg').textContent = `Esta já é a melhor posição encontrada: ${Math.round(r.start * 100)}%.`; rebuild(true); } }
+  catch { $('bestMsg').textContent = 'Não consegui calcular. Tente de novo.'; }
+  b.disabled = false; };
+$('bestUndo').onclick = () => { if (!lastPos) return; Object.assign(st.p, lastPos); lastPos = null; $('bestUndo').hidden = true; $('bestMsg').textContent = 'Posição anterior restaurada.'; rebuild(true); };
 function offerFile(blob, name, msg) { const url = URL.createObjectURL(blob), l = document.createElement('a'); l.href = url; l.download = name; document.body.append(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); msg.textContent = name + ' baixado.'; msg.className = ''; }
 function buildParts() { const p = st.p, list = [];
   st.panels = st.panels || Sombra.buildAll(st.sil, p);
