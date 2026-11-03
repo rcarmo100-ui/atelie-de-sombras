@@ -34,14 +34,15 @@ const Sombra = (() => {
   }
 
   /* liga cada ilha solta à moldura pelo caminho mais curto */
-  function connect(a, nx, ny) {
+  function connect(a, nx, ny, anchored) {
     const { lab, sizes } = label(a, nx, ny, 1);
     if (sizes.length <= 1) return a;
-    const main = lab[0];                   // a célula (0,0) está no trilho da base
+    const fixed = new Set([lab[0]]);        // a célula (0,0) está no trilho da base
+    if (anchored) for (const k of anchored) fixed.add(lab[k]);
     const seen = new Uint8Array(a.length), par = new Int32Array(a.length).fill(-1), q = new Int32Array(a.length * 2);
     let h = 0, t = 0;
-    for (let c = 0; c < a.length; c++) if (lab[c] === main) { seen[c] = 1; q[t++] = c; }
-    const done = new Set([main]), path = new Uint8Array(a.length);
+    for (let c = 0; c < a.length; c++) if (fixed.has(lab[c])) { seen[c] = 1; q[t++] = c; }
+    const done = new Set(fixed), path = new Uint8Array(a.length);
     while (h < t) { const c = q[h++], i = c % nx;
       for (const n of [i > 0 ? c - 1 : -1, i < nx - 1 ? c + 1 : -1, c >= nx ? c - nx : -1, c < a.length - nx ? c + nx : -1]) {
         if (n < 0 || seen[n]) continue; seen[n] = 1; par[n] = c;
@@ -101,14 +102,28 @@ const Sombra = (() => {
     for (let k = 0; k < a.length; k++) if (a[k] && r.lab[k] !== main && r.sizes[r.lab[k]] < minA) a[k] = 0;
     r = label(a, nx, ny, 0);
     for (let k = 0; k < a.length; k++) if (!a[k] && r.sizes[r.lab[k]] < 1 / (G * G)) a[k] = 1;
-    a = connect(a, nx, ny);
-    /* furo-guia na faixa da base: orienta o painel na montagem */
-    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const du = i * G - 7, dw = j * G - RAIL / 2; if (du * du + dw * dw < 1) a[j * nx + i] = 0; }
-    let cells = 0; for (let k = 0; k < a.length; k++) cells += a[k];
-    return { name, def, nx, ny, a, len, Pz, c, cells, ribs };
+    return { name, def, nx, ny, a, len, Pz, c, ribs };
   }
 
-  function buildAll(sil, p) { const o = {}; for (const n in SIDES) o[n] = buildPanel(n, sil, p); return o; }
+  /* peças que se tocam no canto da caixa colam uma na outra e não precisam de ligação */
+  const RING = ['superior', 'esquerdo', 'inferior', 'direito'], MIN_GLUE = .8;
+  function buildAll(sil, p) {
+    const q = RING.map(n => buildPanel(n, sil, p));
+    for (const pn of q) pn.lab = label(pn.a, pn.nx, pn.ny, 1).lab;
+    const off = []; let total = 0; for (const pn of q) { off.push(total); let m = 0; for (let k = 0; k < pn.lab.length; k++) if (pn.lab[k] > m) m = pn.lab[k]; total += m + 2; }
+    const par = Array.from({ length: total }, (_, i) => i), find = x => { while (par[x] !== x) x = par[x] = par[par[x]]; return x; };
+    for (let n = 0; n < 4; n++) { const A = q[n], B = q[(n + 1) % 4], count = new Map(), col = 2;
+      for (let j = 0; j < A.ny; j++) { const ia = j * A.nx + A.nx - 1 - col, ib = j * B.nx + col; if (A.a[ia] && B.a[ib]) { const k = (off[n] + A.lab[ia]) + ':' + (off[(n + 1) % 4] + B.lab[ib]); count.set(k, (count.get(k) || 0) + 1); } }
+      for (const [k, v] of count) if (v * G >= MIN_GLUE) { const [x, y] = k.split(':').map(Number); par[find(x)] = find(y); } }
+    const rootSet = new Set(q.map((pn, n) => find(off[n] + pn.lab[0])));
+    const o = {};
+    q.forEach((pn, n) => { const anchored = [], seen = new Set();
+      for (let k = 0; k < pn.a.length; k++) { const l = pn.lab[k]; if (l >= 0 && !seen.has(l)) { seen.add(l); if (rootSet.has(find(off[n] + l))) anchored.push(k); } }
+      pn.a = connect(pn.a, pn.nx, pn.ny, anchored); delete pn.lab;
+      for (let j = 0; j < pn.ny; j++) for (let i = 0; i < pn.nx; i++) { const du = i * G - 7, dw = j * G - RAIL / 2; if (du * du + dw * dw < 1) pn.a[j * pn.nx + i] = 0; }
+      let cells = 0; for (let k = 0; k < pn.a.length; k++) cells += pn.a[k]; pn.cells = cells; o[pn.name] = pn; });
+    return o;
+  }
 
   /* traça um raio do LED até o ponto (X,Y) da parede. true = sombra */
   function blocked(panels, p, X, Y) {
