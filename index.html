@@ -20,6 +20,7 @@
     <div class="seg" role="group" aria-label="Ver">
       <button id="vWall" aria-pressed="true">Parede</button>
       <button id="vParts" aria-pressed="false">Peças</button>
+      <button id="vFront" aria-pressed="false">Frente</button>
     </div>
     <div class="seg" role="group" aria-label="Ferramenta" style="flex-basis:280px">
       <button id="tMove" aria-pressed="true">Mover</button>
@@ -64,6 +65,20 @@
     <div class="field"><label for="d">Profundidade</label><output id="dOut"></output><input type="range" id="d" min="35" max="80" step="5" value="60"></div>
     <p id="ledNote"></p>
     <p>Quanto maior a caixa, mais detalhe cabe nos recortes. Detalhes perto da luminária saem nítidos e ficam mais grosseiros perto da borda da sombra, porque 1 mm da peça vira vários centímetros na parede.</p>
+  </section>
+
+  <section id="p2b" hidden>
+    <h2>Estampa da frente</h2>
+    <p>Imagem que fica na frente da caixa. Ela pode ser diferente da sombra.</p>
+    <div class="row">
+      <div class="btn upload">Enviar estampa<input type="file" id="artFile" accept="image/*" aria-label="Enviar estampa"></div>
+      <button class="btn" id="artClear" hidden>Remover estampa</button>
+    </div>
+    <p id="artMsg" role="status"></p>
+    <div class="field"><label for="artThr">Limite entre claro e escuro</label><output id="artThrOut">128</output>
+      <input type="range" id="artThr" min="10" max="245" value="128"></div>
+    <label class="check"><input type="checkbox" id="artInv"> Inverter claro e escuro</label>
+    <p>A estampa sai em duas cores: placa clara e arte escura em relevo. No fatiador, comece com filamento claro e troque para o escuro na altura de 1,2 mm. Depois, cole na face externa da tampa.</p>
   </section>
 
   <section id="p3" hidden>

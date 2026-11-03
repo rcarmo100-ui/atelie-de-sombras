@@ -258,6 +258,21 @@ const Sombra = (() => {
     return t;
   }
 
+  /* estampa da frente: placa clara com a arte em relevo, para trocar o filamento na altura ART_BASE */
+  const ART_BASE = 1.2, ART_TOP = 1.8;
+  function artClean(a, nx, ny) {
+    const min = .4 / (G * G); let r = label(a, nx, ny, 1);
+    for (let k = 0; k < a.length; k++) if (a[k] && r.sizes[r.lab[k]] < min) a[k] = 0;
+    r = label(a, nx, ny, 0);
+    for (let k = 0; k < a.length; k++) if (!a[k] && r.sizes[r.lab[k]] < min) a[k] = 1;
+    return a;
+  }
+  function artTris(mask, p) {
+    const t = []; prism(t, [rect(p.W, p.H, p.W / 2, p.H / 2)], 0, ART_BASE);
+    const rings = contours(mask).map(r => r.map(q => [Math.round(q[0] * 1e3) / 1e3, Math.round(q[1] * 1e3) / 1e3]));
+    prism(t, rings, ART_BASE, ART_TOP); return t;
+  }
+
   function stl(tris, name) {
     const n = tris.length / 9, buf = new ArrayBuffer(84 + 50 * n), dv = new DataView(buf);
     const head = ('Sombra ' + name).slice(0, 79); for (let i = 0; i < head.length; i++) dv.setUint8(i, head.charCodeAt(i));
@@ -311,6 +326,6 @@ const Sombra = (() => {
     disc(N * .84, N * .13, 0); return a;
   }
 
-  return { N, G, WALL, BASE, ledZ, maskAt, merge, bestPosition, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
+  return { N, G, WALL, BASE, ledZ, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
 })();
 if (typeof module !== 'undefined') module.exports = Sombra;

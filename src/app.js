@@ -36,7 +36,25 @@ function drawParts() {
     ctx.fillStyle = '#a9a4b4'; ctx.font = '500 18px "IBM Plex Mono",monospace'; ctx.fillText('painel ' + n, 30, y + 14); y += 24;
     ctx.imageSmoothingEnabled = true; ctx.drawImage(c, 30, y, q.len * s, q.Pz * s); y += q.Pz * s + 16; }
 }
-function draw() { st.view === 'wall' ? drawWall() : drawParts(); }
+/* estampa da frente: imagem própria, independente da sombra */
+const art = { bmp: null, thr: 128, inv: false, mask: null, cells: 0 };
+function artMask() { if (!art.bmp) return null; const G = Sombra.G, p = st.p, nx = Math.round(p.W / G) + 1, ny = Math.round(p.H / G) + 1;
+  const c = document.createElement('canvas'); c.width = nx; c.height = ny; const g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#fff'; g.fillRect(0, 0, nx, ny);
+  const iw = art.bmp.naturalWidth || art.bmp.width, ih = art.bmp.naturalHeight || art.bmp.height, m = 3 / G, s = Math.min((nx - 2 * m) / iw, (ny - 2 * m) / ih);
+  g.drawImage(art.bmp, (nx - iw * s) / 2, (ny - ih * s) / 2, iw * s, ih * s);
+  const d = g.getImageData(0, 0, nx, ny).data, a = new Uint8Array(nx * ny);
+  for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const o = ((ny - 1 - j) * nx + i) * 4, v = (d[o] * 77 + d[o + 1] * 150 + d[o + 2] * 29) >> 8; a[j * nx + i] = (v < art.thr) !== art.inv ? 1 : 0; }
+  Sombra.artClean(a, nx, ny); let n = 0; for (let k = 0; k < a.length; k++) n += a[k];
+  art.mask = { nx, ny, a }; art.cells = n; return art.mask; }
+function drawFront() { ctx.fillStyle = '#16151d'; ctx.fillRect(0, 0, R, R); const p = st.p, s = Math.min((R - 80) / p.W, (R - 80) / p.H), w = p.W * s, h = p.H * s, x = (R - w) / 2, y = (R - h) / 2;
+  ctx.fillStyle = '#f1ead9'; ctx.fillRect(x, y, w, h); ctx.textAlign = 'center';
+  const q = art.mask; if (!q) { ctx.fillStyle = '#6a6578'; ctx.font = '500 22px "IBM Plex Mono",monospace'; ctx.fillText('sem estampa', R / 2, R / 2 + 8); return; }
+  const c = document.createElement('canvas'); c.width = q.nx; c.height = q.ny; const g = c.getContext('2d'), im = g.createImageData(q.nx, q.ny);
+  for (let j = 0; j < q.ny; j++) for (let i = 0; i < q.nx; i++) { const o = (j * q.nx + i) * 4, on = q.a[(q.ny - 1 - j) * q.nx + i]; im.data[o] = 22; im.data[o + 1] = 21; im.data[o + 2] = 29; im.data[o + 3] = on ? 255 : 0; }
+  g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); }
+function artChanged() { artMask(); $('artThrOut').textContent = art.thr; if (art.bmp) { st.view = 'front'; viewButtons(); } draw(); partsList(); }
+function viewButtons() { $('vWall').setAttribute('aria-pressed', st.view === 'wall'); $('vParts').setAttribute('aria-pressed', st.view === 'parts'); $('vFront').setAttribute('aria-pressed', st.view === 'front'); }
+function draw() { st.view === 'wall' ? drawWall() : st.view === 'front' ? drawFront() : drawParts(); }
 
 let timer = 0;
 function rebuild(now) {
@@ -50,7 +68,8 @@ function partsList() {
   const q = st.panels, p = st.p; let html = '', tot = 0, G = Sombra.G;
   for (const n in q) { const g = grams(q[n].cells * G * G * Sombra.WALL); tot += g; html += `<li>Painel ${n}<span>${q[n].len.toFixed(0)}×${q[n].Pz} mm · ${g} g</span></li>`; }
   const b = grams(p.W * p.H * 3 * 1.15), c = grams(p.W * p.H * 3 * 1.3); tot += b + c;
-  html += `<li>Base<span>${p.W}×${p.H} mm · ${b} g</span></li><li>Tampa com torre do LED<span>${p.W}×${p.H} mm · ${c} g</span></li><li><b>Filamento estimado</b><span>${tot} g</span></li>`;
+  let artLine = ''; if (art.mask) { const g = grams(p.W * p.H * Sombra.ART_BASE + art.cells * G * G * (Sombra.ART_TOP - Sombra.ART_BASE)); tot += g; artLine = `<li>Estampa da frente<span>${p.W}×${p.H} mm · ${g} g</span></li>`; }
+  html += `<li>Base<span>${p.W}×${p.H} mm · ${b} g</span></li><li>Tampa com torre do LED<span>${p.W}×${p.H} mm · ${c} g</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
   $('parts').innerHTML = html;
 }
 function labels() {
@@ -96,17 +115,24 @@ $('thr').oninput = e => { st.thr = +e.target.value; labels(); compose(); rebuild
 $('inv').onchange = e => { st.inv = e.target.checked; compose(); rebuild(); };
 $('frame').onchange = e => { st.p.frame = e.target.checked; rebuild(); };
 $('size').oninput = e => { st.p.S = +e.target.value; labels(); rebuild(); };
-for (const [id, k] of [['w', 'W'], ['h', 'H'], ['d', 'D']]) $(id).oninput = e => { st.p[k] = +e.target.value; labels(); rebuild(); };
+for (const [id, k] of [['w', 'W'], ['h', 'H'], ['d', 'D']]) $(id).oninput = e => { st.p[k] = +e.target.value; labels(); if (art.bmp) artMask(); rebuild(); };
 $('brush').oninput = labels;
 
 function pick(kind, v) {
   if (kind === 'tool') { st.tool = v; for (const [id, t] of [['tMove', 'move'], ['tDraw', 'draw'], ['tErase', 'erase']]) $(id).setAttribute('aria-pressed', t === v); $('brushField').hidden = v === 'move'; if (st.view !== 'wall') pick('view', 'wall'); else draw(); }
-  if (kind === 'view') { st.view = v; $('vWall').setAttribute('aria-pressed', v === 'wall'); $('vParts').setAttribute('aria-pressed', v === 'parts'); draw(); }
-  if (kind === 'step') for (const n of [1, 2, 3]) { $('p' + n).hidden = n !== v; $('s' + n).setAttribute('aria-pressed', n === v); }
+  if (kind === 'view') { st.view = v; viewButtons(); draw(); }
+  if (kind === 'step') { for (const n of [1, 2, 3]) { $('p' + n).hidden = n !== v; $('s' + n).setAttribute('aria-pressed', n === v); } $('p2b').hidden = v !== 2; }
 }
 $('tMove').onclick = () => pick('tool', 'move'); $('tDraw').onclick = () => pick('tool', 'draw'); $('tErase').onclick = () => pick('tool', 'erase');
 $('vWall').onclick = () => pick('view', 'wall'); $('vParts').onclick = () => pick('view', 'parts');
 [1, 2, 3].forEach(n => $('s' + n).onclick = () => pick('step', n));
+$('vFront').onclick = () => pick('view', 'front');
+$('artFile').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; $('artMsg').textContent = 'Carregando a imagem…'; $('artMsg').className = '';
+  try { art.bmp = await openImage(f); $('artClear').hidden = false; artChanged(); $('artMsg').textContent = 'Estampa carregada: ' + f.name; }
+  catch { $('artMsg').textContent = 'Não consegui ler esse arquivo. Envie em PNG ou JPG.'; $('artMsg').className = 'warn'; } });
+$('artThr').oninput = e => { art.thr = +e.target.value; artChanged(); };
+$('artInv').onchange = e => { art.inv = e.target.checked; artChanged(); };
+$('artClear').onclick = () => { art.bmp = art.mask = null; $('artClear').hidden = true; $('artMsg').textContent = 'Estampa removida.'; draw(); partsList(); };
 $('undo').onclick = () => { const u = st.undo.pop(); if (!u) return; st.edit = u; $('undo').disabled = !st.undo.length; compose(); rebuild(true); };
 
 /* toque: mover, pinça para escala, pincel na parede */
@@ -141,8 +167,9 @@ function buildParts() { const p = st.p, list = [];
   st.panels = st.panels || Sombra.buildAll(st.sil, p);
   for (const n in st.panels) list.push({ name: 'painel-' + n, tris: Sombra.panelTris(st.panels[n]) });
   list.push({ name: 'base', tris: Sombra.baseTris(p) }, { name: 'tampa', tris: Sombra.capTris(p) });
+  if (art.bmp && artMask()) list.push({ name: 'estampa-frente', tris: Sombra.artTris(art.mask, p) });
   return list; }
-function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} x ${p.D} mm. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima tudo deitado, sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nMonte os painéis em volta da aba da base. Faixa estreita junto da base; olhando de fora, com a frente para cima, o furinho da faixa larga fica à esquerda.\nFixe o LED na torre da tampa, virado para a parede, com resistor de 10 ohm e 1 W em série.\nO cabo sai pelo recorte do painel inferior.\n`; }
+function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} x ${p.D} mm. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima tudo deitado, sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nMonte os painéis em volta da aba da base. Faixa estreita junto da base; olhando de fora, com a frente para cima, o furinho da faixa larga fica à esquerda.\nFixe o LED na torre da tampa, virado para a parede, com resistor de 10 ohm e 1 W em série.\nO cabo sai pelo recorte do painel inferior.\n${art.bmp ? `\nEstampa da frente: comece com filamento claro e troque para o escuro na altura de 1,2 mm. Cole na face externa da tampa.\n` : ''}`; }
 async function exportAs(kind) { const msg = $('saveMsg'), btns = [$('saveZip'), $('saveStl')]; clearTimeout(timer); btns.forEach(b => b.disabled = true); msg.className = ''; msg.textContent = 'Gerando as peças…';
   await new Promise(r => setTimeout(r, 30));
   try { const parts = buildParts();
