@@ -54,8 +54,11 @@ const Sombra = (() => {
     return b;
   }
 
-  function maskAt(sil, X, Y, S, ox, oy) {
-    const u = ((X - ox) / S + .5) * (N - 1), v = (.5 - (Y - oy) / S) * (N - 1);
+  /* alvo na parede: com moldura, tudo fora do círculo é sombra */
+  function maskAt(sil, X, Y, p) {
+    const fx = (X - p.ox) / p.S, fy = (Y - p.oy) / p.S;
+    if (p.frame && fx * fx + fy * fy > .2475) return 255;
+    const u = (fx + .5) * (N - 1), v = (.5 - fy) * (N - 1);
     if (u < 0 || v < 0 || u > N - 1 || v > N - 1) return 0;
     return sil[(v + .5 | 0) * N + (u + .5 | 0)];
   }
@@ -76,16 +79,22 @@ const Sombra = (() => {
       const dt = z < L ? L / ((L - z) * (L - z)) * G : 0;
       for (let i = 0; i < nx; i++) { const u = -len / 2 + i * G, o = j * nx + i;
         if (w < RAIL || z >= L) { a[o] = 1; continue; }
-        const t = L / (L - z), P = wall(u, t), on = maskAt(sil, P[0], P[1], p.S, p.ox, p.oy) > 127;
+        const t = L / (L - z), P = wall(u, t), on = maskAt(sil, P[0], P[1], p) > 127;
         if (on) a[o] = 1; else cost[i] += Math.min(dt, 3); } }
     /* finos demais para o bico: engrossa; frestas estreitas: fecha */
     const opened = dilate(erode(a, nx, ny, MINR), nx, ny, MINR); const thin = new Uint8Array(a.length);
     for (let k = 0; k < a.length; k++) thin[k] = a[k] && !opened[k] ? 1 : 0;
     const th = dilate(thin, nx, ny, 1); for (let k = 0; k < a.length; k++) if (th[k]) a[k] = 1;
     a = erode(dilate(a, nx, ny, 1), nx, ny, 1);
-    /* colunas de canto: os cantos dos painéis colados formam um L que trava a frente na base */
-    const cw_ = Math.round(1.2 / G), ribs = [];
-    for (let j = 0; j < ny; j++) for (let k = 0; k < cw_; k++) { a[j * nx + k] = 1; a[j * nx + nx - 1 - k] = 1; }
+    /* com moldura: duas colunas onde o desenho já é escuro; sem moldura: colunas finas nos cantos */
+    const ribs = [];
+    if (p.frame) { const rw = Math.round(1 / G);
+      for (const [lo, hi] of [[rw, nx >> 1], [nx >> 1, nx - 1 - rw]]) {
+        let best = lo, bc = 1e12;
+        for (let i = lo; i < hi; i++) { let s = 0; for (let k = -rw; k <= rw; k++) s += cost[i + k]; if (s < bc) { bc = s; best = i; } }
+        ribs.push(best);
+        for (let j = 0; j < ny; j++) for (let k = -rw; k <= rw; k++) a[j * nx + best + k] = 1; } }
+    else { const n = Math.round(1.2 / G); for (let j = 0; j < ny; j++) for (let k = 0; k < n; k++) { a[j * nx + k] = 1; a[j * nx + nx - 1 - k] = 1; } }
     /* remove farelos e furinhos */
     let r = label(a, nx, ny, 1); const main = r.lab[0], minA = 1.5 / (G * G);
     for (let k = 0; k < a.length; k++) if (a[k] && r.lab[k] !== main && r.sizes[r.lab[k]] < minA) a[k] = 0;
@@ -124,7 +133,7 @@ const Sombra = (() => {
     for (let j = 0; j < N; j += step) for (let i = 0; i < N; i += step) {
       const X = (i / (N - 1) - .5) * p.S + p.ox, Y = (.5 - j / (N - 1)) * p.S + p.oy;
       if (Math.abs(X) * fb < p.W / 2 && Math.abs(Y) * fb < p.H / 2) continue;
-      const a = sil[j * N + i] > 127, b = blocked(panels, p, X, Y);
+      const a = maskAt(sil, X, Y, p) > 127, b = blocked(panels, p, X, Y);
       if (a || b) { uni++; if (a && b) inter++; } }
     return uni ? inter / uni : 1;
   }
@@ -236,6 +245,19 @@ const Sombra = (() => {
     return new Uint8Array(buf);
   }
 
+  /* junta as peças num STL só, lado a lado e sem encostar, para separar no fatiador */
+  function merge(parts, bedW = 250, gap = 6) {
+    const out = []; let x = 0, y = 0, row = 0;
+    for (const t of parts) {
+      let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9;
+      for (let i = 0; i < t.length; i += 3) { x0 = Math.min(x0, t[i]); x1 = Math.max(x1, t[i]); y0 = Math.min(y0, t[i + 1]); y1 = Math.max(y1, t[i + 1]); z0 = Math.min(z0, t[i + 2]); }
+      const w = x1 - x0, h = y1 - y0;
+      if (x > 0 && x + w > bedW) { x = 0; y += row + gap; row = 0; }
+      for (let i = 0; i < t.length; i += 3) out.push(t[i] - x0 + x, t[i + 1] - y0 + y, t[i + 2] - z0);
+      x += w + gap; row = Math.max(row, h); }
+    return out;
+  }
+
   const crcT = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
   const crc32 = d => { let c = ~0; for (let i = 0; i < d.length; i++) c = crcT[(c ^ d[i]) & 255] ^ (c >>> 8); return (~c) >>> 0; };
   function zip(files) { // sem compressão: STL binário abre em qualquer fatiador
@@ -264,6 +286,6 @@ const Sombra = (() => {
     disc(N * .84, N * .13, 0); return a;
   }
 
-  return { N, G, WALL, BASE, ledZ, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
+  return { N, G, WALL, BASE, ledZ, maskAt, merge, buildAll, blocked, score, baseTris, capTris, panelTris, stl, zip, tree, contours, SIDES };
 })();
 if (typeof module !== 'undefined') module.exports = Sombra;

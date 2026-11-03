@@ -10,3 +10,7 @@ Site estático, sem etapa de build: `index.html` carrega `src/`. Para testar loc
 - `src/core.js`: geometria, simulação da sombra, malhas, STL e ZIP
 - `src/app.js`: interface
 - `vendor/earcut.min.js`: triangulação (licença ISC, em `vendor/earcut-LICENSE`)
+
+## Créditos
+
+A moldura circular e as medidas iniciais da caixa foram inspiradas no [ShadowBox](https://github.com/Akirakato1/ShadowBox), de Akirakato1 (licença MIT).

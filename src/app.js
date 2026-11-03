@@ -1,6 +1,6 @@
-const $ = id => document.getElementById(id), N = Sombra.N, VIEW = 1000; // parede visível: 1 m
+const $ = id => document.getElementById(id), N = Sombra.N, VIEW = 1200; // parede visível: 1 m
 const st = { gray: null, edit: new Int8Array(N * N), sil: new Uint8Array(N * N), panels: null, tool: 'move', view: 'wall', undo: [], busy: 0,
-  p: { W: 90, H: 120, D: 50, S: 700, ox: 0, oy: 0 }, thr: 128, inv: false, preview: false };
+  p: { W: 150, H: 150, D: 60, S: 900, ox: 0, oy: 0, frame: true }, thr: 128, inv: false, preview: false };
 const cv = $('wall'), ctx = cv.getContext('2d', { willReadFrequently: true }), R = cv.width, img = ctx.createImageData(R, R);
 
 function compose() {
@@ -11,8 +11,7 @@ function drawWall() {
   const { p, panels, sil, preview } = st, d = img.data, L = Sombra.ledZ(p), mm = VIEW / R;
   for (let j = 0, o = 0; j < R; j++) { const Y = (R / 2 - j - .5) * mm;
     for (let i = 0; i < R; i++, o += 4) { const X = (i - R / 2 + .5) * mm; let dark;
-      if (preview || !panels) { const u = ((X - p.ox) / p.S + .5) * (N - 1) + .5 | 0, v = ((.5 - (Y - p.oy) / p.S)) * (N - 1) + .5 | 0;
-        dark = u >= 0 && v >= 0 && u < N && v < N && sil[v * N + u] > 127; }
+      if (preview || !panels) dark = Sombra.maskAt(sil, X, Y, p) > 127;
       else dark = Sombra.blocked(panels, p, X, Y);
       const r2 = (X * X + Y * Y) / (260 * 260), lux = dark ? 0 : 1 / (1 + r2 * .55);
       d[o] = 14 + 232 * lux; d[o + 1] = 13 + 200 * lux; d[o + 2] = 18 + 146 * lux; d[o + 3] = 255; } }
@@ -21,7 +20,7 @@ function drawWall() {
   ctx.fillStyle = '#26242f'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#6a6578'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
   ctx.fillStyle = '#a9a4b4'; ctx.font = '500 20px "IBM Plex Mono",monospace'; ctx.textAlign = 'center';
   ctx.fillText(`${p.W}×${p.H}`, R / 2, R / 2 + 7);
-  if (st.tool === 'move') { const s = p.S / mm; ctx.setLineDash([8, 8]); ctx.strokeStyle = 'rgba(255,190,107,.55)'; ctx.strokeRect(R / 2 + (p.ox - p.S / 2) / mm, R / 2 - (p.oy + p.S / 2) / mm, s, s); ctx.setLineDash([]); }
+  if (st.tool === 'move') { const s = p.S / mm; ctx.setLineDash([8, 8]); ctx.strokeStyle = 'rgba(255,190,107,.55)'; if (p.frame) { ctx.beginPath(); ctx.arc(R / 2 + p.ox / mm, R / 2 - p.oy / mm, s / 2, 0, 7); ctx.stroke(); } else ctx.strokeRect(R / 2 + (p.ox - p.S / 2) / mm, R / 2 - (p.oy + p.S / 2) / mm, s, s); ctx.setLineDash([]); }
   ctx.textAlign = 'left'; ctx.font = '500 18px "IBM Plex Mono",monospace'; ctx.fillStyle = 'rgba(241,234,217,.8)';
   ctx.fillRect(20, R - 22, 100 / mm, 3); ctx.fillText('10 cm', 20, R - 32);
 }
@@ -95,6 +94,7 @@ $('blank').onclick = () => { setGray(new Uint8Array(N * N).fill(255)); pick('too
 $('sample').onclick = loadTree;
 $('thr').oninput = e => { st.thr = +e.target.value; labels(); compose(); rebuild(); };
 $('inv').onchange = e => { st.inv = e.target.checked; compose(); rebuild(); };
+$('frame').onchange = e => { st.p.frame = e.target.checked; rebuild(); };
 $('size').oninput = e => { st.p.S = +e.target.value; labels(); rebuild(); };
 for (const [id, k] of [['w', 'W'], ['h', 'H'], ['d', 'D']]) $(id).oninput = e => { st.p[k] = +e.target.value; labels(); rebuild(); };
 $('brush').oninput = labels;
@@ -121,22 +121,26 @@ cv.addEventListener('pointerdown', e => { if (st.view !== 'wall') return; cv.set
   if (ptrs.size === 2 && st.tool === 'move') { const [a, b] = [...ptrs.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), s: st.p.S }; } });
 cv.addEventListener('pointermove', e => { if (!ptrs.has(e.pointerId)) return; const q = toWall(e); ptrs.set(e.pointerId, q);
   if (st.tool !== 'move') { stamp(last, q); last = q; st.preview = true; drawWall(); return; }
-  if (ptrs.size === 2 && pinch) { const [a, b] = [...ptrs.values()]; st.p.S = Math.max(300, Math.min(1100, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d)) | 0; $('size').value = st.p.S; labels(); }
+  if (ptrs.size === 2 && pinch) { const [a, b] = [...ptrs.values()]; st.p.S = Math.max(300, Math.min(1200, pinch.s * Math.hypot(a[0] - b[0], a[1] - b[1]) / pinch.d)) | 0; $('size').value = st.p.S; labels(); }
   else if (ptrs.size === 1) { st.p.ox += q[0] - last[0]; st.p.oy += q[1] - last[1]; last = q; }
   st.preview = true; drawWall(); });
 const up = e => { if (!ptrs.delete(e.pointerId)) return; if (ptrs.size < 2) pinch = null; if (!ptrs.size) rebuild(); };
 cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
 
-$('save').onclick = async () => { const msg = $('saveMsg'), btn = $('save'); clearTimeout(timer); btn.disabled = true; msg.textContent = 'Gerando as peças…';
+function offerFile(blob, name, msg) { const url = URL.createObjectURL(blob), l = document.createElement('a'); l.href = url; l.download = name; document.body.append(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); msg.textContent = name + ' baixado.'; msg.className = ''; }
+function buildParts() { const p = st.p, list = [];
+  st.panels = st.panels || Sombra.buildAll(st.sil, p);
+  for (const n in st.panels) list.push({ name: 'painel-' + n, tris: Sombra.panelTris(st.panels[n]) });
+  list.push({ name: 'base', tris: Sombra.baseTris(p) }, { name: 'tampa', tris: Sombra.capTris(p) });
+  return list; }
+function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} x ${p.D} mm. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima tudo deitado, sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nMonte os painéis em volta da aba da base. Faixa estreita junto da base; olhando de fora, com a frente para cima, o furinho da faixa larga fica à esquerda.\nFixe o LED na torre da tampa, virado para a parede, com resistor de 10 ohm e 1 W em série.\nO cabo sai pelo recorte do painel inferior.\n`; }
+async function exportAs(kind) { const msg = $('saveMsg'), btns = [$('saveZip'), $('saveStl')]; clearTimeout(timer); btns.forEach(b => b.disabled = true); msg.className = ''; msg.textContent = 'Gerando as peças…';
   await new Promise(r => setTimeout(r, 30));
-  st.panels = st.panels || Sombra.buildAll(st.sil, st.p);
-  const p = st.p, files = []; for (const n in st.panels) files.push({ name: `painel-${n}.stl`, data: Sombra.stl(Sombra.panelTris(st.panels[n]), n) });
-  files.push({ name: 'base.stl', data: Sombra.stl(Sombra.baseTris(p), 'base') }, { name: 'tampa.stl', data: Sombra.stl(Sombra.capTris(p), 'tampa') });
-  const txt = `Ateliê de Sombras\nCaixa ${p.W} x ${p.H} x ${p.D} mm. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima tudo deitado, sem suportes, em filamento preto opaco: 0,2 mm, bico 0,4, sem raft.\nMonte os paineis em volta da aba da base. Faixa estreita junto da base; olhando de fora, com a frente para cima, o furinho da faixa larga fica a esquerda.\nCole os quatro cantos. Fixe o LED na torre da tampa, virado para a parede, com resistor de 10 ohm e 1 W em serie.\nO cabo sai pelo recorte do painel inferior.\n`;
-  files.push({ name: 'LEIA-ME.txt', data: new TextEncoder().encode(txt) });
-  const blob = Sombra.zip(files);
-  try { const u = URL.createObjectURL(blob), l = document.createElement('a'); l.href = u; l.download = 'luminaria-de-sombra.zip'; document.body.append(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000); msg.textContent = 'ZIP baixado no seu aparelho.'; msg.className = ''; }
-  catch (err) { msg.textContent = err && err.code === 'declined' ? 'Download cancelado.' : 'O download não foi concluído. Tente de novo.'; msg.className = err && err.code === 'declined' ? '' : 'warn'; }
-  btn.disabled = false; };
+  try { const parts = buildParts();
+    if (kind === 'zip') { const files = parts.map(q => ({ name: q.name + '.stl', data: Sombra.stl(q.tris, q.name) })); files.push({ name: 'LEIA-ME.txt', data: new TextEncoder().encode(readme()) }); offerFile(Sombra.zip(files), 'luminaria-pecas.zip', msg); }
+    else offerFile(new Blob([Sombra.stl(Sombra.merge(parts.map(q => q.tris)), 'luminaria')], { type: 'model/stl' }), 'luminaria-completa.stl', msg); }
+  catch { msg.textContent = 'Não consegui gerar o arquivo. Tente de novo.'; msg.className = 'warn'; }
+  btns.forEach(b => b.disabled = false); }
+$('saveZip').onclick = () => exportAs('zip'); $('saveStl').onclick = () => exportAs('stl');
 
 labels(); loadTree();
