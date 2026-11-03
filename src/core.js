@@ -260,8 +260,8 @@ const Sombra = (() => {
     prism(t, [rect(2 * w, 2 * h), keyhole, cw(rect(HATCH[0], HATCH[1], 0, y))], 0, 1.5);
     prism(t, [rect(2 * w, 2 * h), keyhole, cw(rect(OPEN[0], OPEN[1], 0, y))], 1.5, F);
     const ring = [rect(2 * w, 2 * h), cw(rect(2 * i, 2 * j))];
-    const gapRight = [[-w, -h], [w, -h], [w, -9.5], [i, -9.5], [i, -j], [-i, -j], [-i, j], [i, j], [i, 9.5], [w, 9.5], [w, h], [-w, h]];
-    prism(t, ring, F, 7.5); prism(t, [gapRight], 7.5, 20.5); prism(t, ring, 20.5, T);
+    const gapRight = [[-w, -h], [w, -h], [w, -7.75], [i, -7.75], [i, -j], [-i, -j], [-i, j], [i, j], [i, 7.75], [w, 7.75], [w, h], [-w, h]];
+    prism(t, ring, F, 9.5); prism(t, [gapRight], 9.5, 18.5); prism(t, ring, 18.5, T);
     for (const s of [-1, 1]) for (const cyc of clipY(p)) {
       const x0 = i + 1, x1 = i + 2.4, a = s > 0 ? x0 : -x1, b = s > 0 ? x1 : -x0;
       prism(t, [rect(b - a, TAB_W, (a + b) / 2, cyc)], T, T + 2.7);

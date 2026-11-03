@@ -14,8 +14,8 @@ window.Shots = (() => {
   const led = () => { const g = new THREE.Group(); const m = new THREE.MeshPhysicalMaterial({ color: 0xfff6d8, roughness: .2, transparent: true, opacity: .75 }); const b = cyl(4, 6, m); b.rotation.x = Math.PI / 2; g.add(b); const r = cyl(4.5, 1, m); r.rotation.x = Math.PI / 2; r.position.z = 3; g.add(r); const d = new THREE.Mesh(new THREE.SphereGeometry(4, 20, 12), m); d.position.z = -3; g.add(d); for (const x of [-1.3, 1.3]) { const l = cyl(.3, 6, mat(0xc8c8cc, { metalness: .8 }), 8); l.rotation.x = Math.PI / 2; l.position.set(x, 0, 6); g.add(l); } return g; };
   const screw = (len, r0) => { const g = new THREE.Group(), m = mat(0x9aa0a8, { metalness: .9, roughness: .3 }); const s = cyl(r0, len, m, 14); g.add(s); const h = cyl(r0 * 1.8, r0 * 1.2, m, 18); h.position.y = len / 2; g.add(h); return g; };
   const wire = (pts, c) => { const v = pts.map(q => new THREE.Vector3(...q)); const m = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(v), 80, .8, 8), mat(c)); m.castShadow = true; return m; };
-  const holder = () => { const g = new THREE.Group(); const b = block(58, 48, 16, mat(0x202024)); g.add(b); for (const y of [-15.5, 0, 15.5]) { const a = cyl(7, 50, mat(0x2d6b4f, { metalness: .2 }), 24); a.rotation.z = Math.PI / 2; a.position.set(0, y, 8); g.add(a); const c = cyl(7.05, 6, mat(0xc8c8cc, { metalness: .8 }), 24); c.rotation.z = Math.PI / 2; c.position.set(24, y, 8); g.add(c); } return g; };
-  const sw = () => { const g = new THREE.Group(); g.add(block(21, 15, 2.5, mat(0x18181b))); const k = block(14, 11, 4, mat(0xf2f2f2)); k.position.z = 2.5; k.rotation.y = .18; g.add(k); const q = block(18, 12, 18, mat(0x232327)); q.position.z = -10; g.add(q); return g; };
+  const holder = () => { const g = new THREE.Group(); const b = block(58, 32, 15, mat(0x202024)); g.add(b); for (const y of [-7.5, 7.5]) { const a = cyl(7, 50, mat(0x2d6b4f, { metalness: .2 }), 24); a.rotation.z = Math.PI / 2; a.position.set(0, y, 8); g.add(a); const c = cyl(7.05, 6, mat(0xc8c8cc, { metalness: .8 }), 24); c.rotation.z = Math.PI / 2; c.position.set(24, y, 8); g.add(c); } return g; };
+  const sw = () => { const g = new THREE.Group(); g.add(block(16.7, 10.5, 2.5, mat(0x18181b))); const k = block(12, 8, 4, mat(0xf2f2f2)); k.position.z = 2.5; k.rotation.y = .18; g.add(k); const q = block(15, 9, 14, mat(0x232327)); q.position.z = -10; g.add(q); return g; };
   const resistor = () => { const g = new THREE.Group(); const a = cyl(1.3, 10, mat(0xc7a26a)); a.rotation.z = Math.PI / 2; g.add(a); const b = cyl(.3, 26, mat(0xbbbbbb, { metalness: .8 })); b.rotation.z = Math.PI / 2; g.add(b); return g; };
   function pieces() { const P = st.panels, o = {};
     o.box = mesh(Sombra.boxTris(p)); o.plate = mesh(Sombra.plateTris(p), mat(0xe8e2d4), (x, y, z) => [x, y, z]);
@@ -57,7 +57,7 @@ window.Shots = (() => {
     externos() { const s = studio(), lb = [], add = (o, x, z, t, y = 6) => { o.position.set(x, y, z); s.add(o); lb.push([t, [x, y + 14, z]]); };
       const t = block(27, .4, 15, glass()); add(t, -130, -70, 'Tira de PET', 1);
       const h = holder(); h.rotation.x = -Math.PI / 2; add(h, 40, -80, 'Suporte de pilhas', 4);
-      const l = led(); l.rotation.x = Math.PI / 2; add(l, -160, 20, 'LED 1 W', 3); const a = sw(); a.rotation.x = -Math.PI / 2; add(a, -70, 20, 'Interruptor', 18); const e = resistor(); add(e, 10, 20, 'Resistor 10 Ω', 2);
+      const l = led(); l.rotation.x = Math.PI / 2; add(l, -160, 20, 'LED chapéu de palha', 3); const a = sw(); a.rotation.x = -Math.PI / 2; add(a, -70, 20, 'Interruptor', 18); 
       const m3 = screw(30, 1.7); m3.rotation.z = Math.PI / 2; add(m3, 110, 20, 'Parafuso de parede', 3);
       s.add(wire([[-170, 1, 90], [-120, 1, 70], [-60, 1, 100], [0, 1, 80]], 0xc0392b)); s.add(wire([[-170, 1, 100], [-120, 1, 80], [-60, 1, 110], [0, 1, 90]], 0x181818)); lb.push(['Fios', [-80, 16, 100]]);
       return snap(s, cam(-5, 250, 260, -5, 0, 10, 32), lb); },
