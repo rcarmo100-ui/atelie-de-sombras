@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ateliê de Sombras</title>
+<meta name="description" content="Crie luminárias de sombra para impressão 3D no celular.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Hanken+Grotesk:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="src/style.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Ateliê de Sombras</h1>
+    <div class="score" id="score" title="Quanto a sombra calculada coincide com o seu desenho">fidelidade <b id="scoreVal">–</b></div>
+  </header>
+  <div class="stage"><canvas id="wall" width="720" height="720" aria-label="Simulação da sombra na parede"></canvas></div>
+  <div class="tools">
+    <div class="seg" role="group" aria-label="Ver">
+      <button id="vWall" aria-pressed="true">Parede</button>
+      <button id="vParts" aria-pressed="false">Peças</button>
+    </div>
+    <div class="seg" role="group" aria-label="Ferramenta" style="flex-basis:280px">
+      <button id="tMove" aria-pressed="true">Mover</button>
+      <button id="tDraw" aria-pressed="false">Pincel</button>
+      <button id="tErase" aria-pressed="false">Borracha</button>
+    </div>
+    <button class="btn" id="undo" disabled>Desfazer</button>
+  </div>
+  <div class="field" id="brushField" hidden>
+    <label for="brush">Tamanho do pincel</label><output id="brushOut"></output>
+    <input type="range" id="brush" min="4" max="60" value="16">
+  </div>
+  <div class="tabs"><div class="seg" role="group" aria-label="Etapas">
+    <button id="s1" aria-pressed="true">Sombra</button>
+    <button id="s2" aria-pressed="false">Luminária</button>
+    <button id="s3" aria-pressed="false">Imprimir</button>
+  </div></div>
+
+  <section id="p1">
+    <div class="row">
+      <div class="btn upload">Enviar imagem<input type="file" id="file" accept="image/*" aria-label="Enviar imagem"></div>
+      <button class="btn" id="blank">Tela limpa</button>
+    </div>
+    <div id="pasteBox" class="paste" contenteditable="true" role="textbox" aria-label="Colar imagem" data-ph="Ou segure aqui e toque em Colar para usar uma imagem copiada"></div>
+    <p id="fileMsg" role="status">Envie PNG, JPG ou WebP.</p>
+    <button class="btn" id="sample">Usar a árvore de exemplo</button>
+    <div class="field"><label for="thr">Limite entre claro e escuro</label><output id="thrOut"></output>
+      <input type="range" id="thr" min="10" max="245" value="128"></div>
+    <label class="check"><input type="checkbox" id="inv"> Inverter claro e escuro</label>
+    <div class="field"><label for="size">Tamanho da sombra na parede</label><output id="sizeOut"></output>
+      <input type="range" id="size" min="300" max="1100" step="10" value="700"></div>
+    <p>O escuro da imagem vira sombra. A árvore é só um exemplo: use uma imagem preto e branco ou desenhe com o Pincel na própria parede. Arraste para posicionar e use dois dedos para mudar o tamanho. A luminária deve ficar sobre uma parte escura do desenho, que assim a contorna.</p>
+  </section>
+
+  <section id="p2" hidden>
+    <div class="field"><label for="w">Largura</label><output id="wOut"></output><input type="range" id="w" min="60" max="160" step="5" value="90"></div>
+    <div class="field"><label for="h">Altura</label><output id="hOut"></output><input type="range" id="h" min="60" max="200" step="5" value="120"></div>
+    <div class="field"><label for="d">Profundidade</label><output id="dOut"></output><input type="range" id="d" min="35" max="80" step="5" value="50"></div>
+    <p id="ledNote"></p>
+    <p>Quanto maior a caixa, mais detalhe cabe nos recortes. Detalhes perto da luminária saem nítidos e ficam mais grosseiros perto da borda da sombra, porque 1 mm da peça vira vários centímetros na parede.</p>
+  </section>
+
+  <section id="p3" hidden>
+    <button class="btn main" id="save">Baixar arquivos para imprimir</button>
+    <p id="saveMsg" role="status">Você recebe um ZIP com um STL por peça e as instruções.</p>
+    <ul class="list" id="parts"></ul>
+    <h2>Materiais</h2>
+    <ul class="list">
+      <li>Filamento PLA ou PETG preto, opaco</li>
+      <li>LED de 1 W em placa estrela de 20 mm, branco quente<span>emissor até 3 mm</span></li>
+      <li>Resistor de 10 Ω e 1 W<span>LED a ~180 mA</span></li>
+      <li>Cabo USB de 5 V para cortar e carregador</li>
+      <li>Cola para PLA e 1 parafuso de parede<span>cabeça até 8 mm</span></li>
+    </ul>
+    <h2>Impressão e montagem</h2>
+    <ol>
+      <li>Imprima tudo deitado, sem suportes: 0,2 mm, bico 0,4 e sem raft.</li>
+      <li>Fixe os painéis em volta da aba da base, faixa estreita junto da base. Olhando de fora, com a frente para cima, o furinho da faixa larga fica à esquerda.</li>
+      <li>Cole os quatro cantos: eles sustentam a frente.</li>
+      <li>Solde o resistor em série com o LED, respeitando + e −. Cole a placa na torre da tampa, com o LED virado para a parede.</li>
+      <li>Passe o cabo pelo recorte do painel inferior, encaixe a tampa e pendure no parafuso.</li>
+    </ol>
+    <p>O LED esquenta e o PLA amolece perto de 60 °C. Teste antes de fechar a tampa e não deixe ligada sem supervisão até conferir a temperatura.</p>
+    <p>Os quatro traços finos em X na simulação são as colunas de canto. Sem elas a frente cairia.</p>
+  </section>
+</div>
+<script src="vendor/earcut.min.js"></script>
+<script src="src/core.js"></script>
+<script src="src/app.js"></script>
+</body>
+</html>

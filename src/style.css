@@ -1,0 +1,53 @@
+html{box-sizing:border-box}*,*::before,*::after{box-sizing:inherit}body{margin:0}img{max-width:100%}
+/* Quarto escuro: o palco é a parede; os controles ficam embaixo, ao alcance do polegar. */
+:root{
+  color-scheme:dark;
+  --room:#16151d; --panel:#21202b; --line:#3a3847; --ink:#f1ead9; --dim:#a9a4b4;
+  --led:#ffbe6b; --led-ink:#2b1a05; --warn:#ff9c7a; --good:#9fdcae;
+  --display:"Bricolage Grotesque","Trebuchet MS",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+html,body{background:var(--room);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.45}
+.app{max-width:560px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:12px 28px;display:flex;flex-direction:column;gap:12px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+h1{font:800 1.45rem/1.1 var(--display);margin:0;letter-spacing:-.01em}
+.score{font:500 .8rem var(--mono);padding:5px 10px;border-radius:999px;border:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.score b{font-weight:500}.score.ok b{color:var(--good)}.score.low b{color:var(--warn)}
+.stage{position:relative;aspect-ratio:1;max-width:100%;background:#000;border-radius:6px;overflow:hidden}
+canvas#wall{display:block;width:100%;height:100%;touch-action:none}
+.seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;min-height:42px;background:none;border:0;color:var(--dim);font:600 .9rem var(--body);padding:0 6px;cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--led);color:var(--led-ink)}
+.tools{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.tools .seg{flex:1 1 220px}
+.btn{min-height:42px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);font:600 .9rem var(--body);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.main{background:var(--led);border-color:var(--led);color:var(--led-ink);width:100%;min-height:50px;font-size:1rem}
+:focus-visible{outline:2px solid var(--led);outline-offset:2px}
+.tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--room);padding-block:4px}
+section{display:flex;flex-direction:column;gap:14px;background:var(--panel);border-radius:8px;padding:14px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.row label.btn{cursor:pointer}
+.field{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline}
+.field label{font-weight:500;font-size:.92rem}
+.field output{font:500 .85rem var(--mono);color:var(--led);font-variant-numeric:tabular-nums}
+.field input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--led);height:28px;margin:0}
+.check{display:flex;align-items:center;gap:8px;font-weight:500;font-size:.92rem}
+.check input{width:20px;height:20px;accent-color:var(--led)}
+p{margin:0;color:var(--dim);font-size:.9rem;max-width:65ch}
+p.strong{color:var(--ink)}
+.warn{color:var(--warn)}
+h2{font:600 1.05rem var(--display);margin:0}
+ul.list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:0}
+ul.list li{display:grid;grid-template-columns:1fr auto;gap:2px 12px;padding:8px 0;border-top:1px solid var(--line);font-size:.92rem}
+ul.list li:first-child{border-top:0}
+ul.list span{font:500 .8rem var(--mono);color:var(--dim);font-variant-numeric:tabular-nums}
+ol{margin:0;padding-left:20px;color:var(--dim);font-size:.9rem;display:flex;flex-direction:column;gap:6px}
+[hidden]{display:none!important}
+.paste{min-height:64px;padding:12px;border:1px dashed var(--line);border-radius:8px;color:var(--ink);font-size:.9rem;overflow:hidden}
+.paste:empty::before{content:attr(data-ph);color:var(--dim)}
+.upload{position:relative;overflow:hidden}
+.upload input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:40px}
+@media (prefers-reduced-motion:no-preference){.seg button,.btn{transition:background .15s}}
