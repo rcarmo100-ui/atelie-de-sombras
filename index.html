@@ -15,12 +15,27 @@
     <h1>Ateliê de Sombras</h1>
     <div class="score" id="score" title="Quanto a sombra calculada coincide com o seu desenho">fidelidade <b id="scoreVal">–</b></div>
   </header>
-  <div class="stage"><canvas id="wall" width="720" height="720" aria-label="Simulação da sombra na parede"></canvas></div>
+  <div class="stage"><canvas id="wall" width="720" height="720" aria-label="Simulação da sombra na parede"></canvas>
+    <canvas id="room" hidden aria-label="Quarto em 3D com a luminária na parede"></canvas>
+    <p id="roomHint" hidden>Arraste para girar. Use dois dedos para aproximar.</p></div>
+  <div class="roomBar" id="roomBar" hidden>
+    <label class="check"><input type="checkbox" id="rLed" checked> Luminária ligada</label>
+    <label class="check"><input type="checkbox" id="rRoom"> Luz do quarto acesa</label>
+    <div class="seg" role="group" aria-label="Câmera">
+      <button id="cFront">Frente</button><button id="cSide">Lateral</button><button id="cNear">De perto</button><button id="cBed">Da cama</button>
+    </div>
+    <div class="row">
+      <div class="field"><label for="rColor">Cor do LED</label><select id="rColor"><option value="quente">Branco quente</option><option value="frio">Branco frio</option><option value="vermelho">Vermelho</option><option value="azul">Azul</option></select></div>
+      <div class="field"><label for="rWall">Parede</label><select id="rWall"><option value="branca">Branca</option><option value="cinza">Cinza</option><option value="escura">Azul escura</option></select></div>
+    </div>
+    <p id="roomMsg" role="status"></p>
+  </div>
   <div class="tools">
     <div class="seg" role="group" aria-label="Ver">
       <button id="vWall" aria-pressed="true">Parede</button>
       <button id="vParts" aria-pressed="false">Peças</button>
       <button id="vFront" aria-pressed="false">Frente</button>
+      <button id="vRoom" aria-pressed="false">Quarto</button>
     </div>
     <div class="seg" role="group" aria-label="Ferramenta" style="flex-basis:280px">
       <button id="tMove" aria-pressed="true">Mover</button>
@@ -110,6 +125,7 @@
 </div>
 <script src="vendor/earcut.min.js"></script>
 <script src="src/core.js"></script>
+<script src="src/room.js"></script>
 <script src="src/app.js"></script>
 </body>
 </html>

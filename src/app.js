@@ -52,14 +52,17 @@ function drawFront() { ctx.fillStyle = '#16151d'; ctx.fillRect(0, 0, R, R); cons
   const c = document.createElement('canvas'); c.width = q.nx; c.height = q.ny; const g = c.getContext('2d'), im = g.createImageData(q.nx, q.ny);
   for (let j = 0; j < q.ny; j++) for (let i = 0; i < q.nx; i++) { const o = (j * q.nx + i) * 4, on = q.a[(q.ny - 1 - j) * q.nx + i]; im.data[o] = 22; im.data[o + 1] = 21; im.data[o + 2] = 29; im.data[o + 3] = on ? 255 : 0; }
   g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); }
-function artChanged() { artMask(); $('artThrOut').textContent = art.thr; if (art.bmp) { st.view = 'front'; viewButtons(); } draw(); partsList(); }
-function viewButtons() { $('vWall').setAttribute('aria-pressed', st.view === 'wall'); $('vParts').setAttribute('aria-pressed', st.view === 'parts'); $('vFront').setAttribute('aria-pressed', st.view === 'front'); }
-function draw() { st.view === 'wall' ? drawWall() : st.view === 'front' ? drawFront() : drawParts(); }
+function artChanged() { artMask(); Room.dirty(); $('artThrOut').textContent = art.thr; if (art.bmp) { st.view = 'front'; viewButtons(); } draw(); partsList(); }
+function viewButtons() { for (const [id, v] of [['vWall', 'wall'], ['vParts', 'parts'], ['vFront', 'front'], ['vRoom', 'room']]) $(id).setAttribute('aria-pressed', st.view === v);
+  const room = st.view === 'room'; $('wall').hidden = room; $('room').hidden = !room; $('roomHint').hidden = !room; $('roomBar').hidden = !room; }
+const roomMsg = t => { $('roomMsg').textContent = t; };
+async function showRoom() { clearTimeout(timer); if (!st.panels) st.panels = Sombra.buildAll(st.sil, st.p); await Room.show($('room'), st.p, st.panels, art.bmp ? art.mask : null, roomMsg); }
+function draw() { if (st.view === 'room') return showRoom(); st.view === 'wall' ? drawWall() : st.view === 'front' ? drawFront() : drawParts(); }
 
 let timer = 0;
 function rebuild(now) {
   clearTimeout(timer); st.preview = true; if (st.view === 'wall') drawWall();
-  timer = setTimeout(() => { st.panels = Sombra.buildAll(st.sil, st.p); st.preview = false; const v = Sombra.score(st.sil, st.panels, st.p);
+  timer = setTimeout(() => { st.panels = Sombra.buildAll(st.sil, st.p); st.preview = false; Room.dirty(); const v = Sombra.score(st.sil, st.panels, st.p);
     $('scoreVal').textContent = Math.round(v * 100) + '%'; $('score').className = 'score ' + (v >= .8 ? 'ok' : 'low');
     draw(); partsList(); }, now ? 0 : 220);
 }
@@ -127,12 +130,18 @@ $('tMove').onclick = () => pick('tool', 'move'); $('tDraw').onclick = () => pick
 $('vWall').onclick = () => pick('view', 'wall'); $('vParts').onclick = () => pick('view', 'parts');
 [1, 2, 3].forEach(n => $('s' + n).onclick = () => pick('step', n));
 $('vFront').onclick = () => pick('view', 'front');
+$('vRoom').onclick = () => pick('view', 'room');
+$('rLed').onchange = e => Room.set('on', e.target.checked);
+$('rRoom').onchange = e => Room.set('room', e.target.checked);
+$('rColor').onchange = e => Room.set('led', e.target.value);
+$('rWall').onchange = e => Room.set('wall', e.target.value);
+$('cFront').onclick = () => Room.view(0, 1.5, 2.7); $('cSide').onclick = () => Room.view(1.1, 1.45, 1.9); $('cNear').onclick = () => Room.view(.55, 1.4, .55); $('cBed').onclick = () => Room.view(-.5, 1.65, 2.6);
 $('artFile').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; $('artMsg').textContent = 'Carregando a imagem…'; $('artMsg').className = '';
   try { art.bmp = await openImage(f); $('artClear').hidden = false; artChanged(); $('artMsg').textContent = 'Estampa carregada: ' + f.name; }
   catch { $('artMsg').textContent = 'Não consegui ler esse arquivo. Envie em PNG ou JPG.'; $('artMsg').className = 'warn'; } });
 $('artThr').oninput = e => { art.thr = +e.target.value; artChanged(); };
 $('artInv').onchange = e => { art.inv = e.target.checked; artChanged(); };
-$('artClear').onclick = () => { art.bmp = art.mask = null; $('artClear').hidden = true; $('artMsg').textContent = 'Estampa removida.'; draw(); partsList(); };
+$('artClear').onclick = () => { art.bmp = art.mask = null; Room.dirty(); $('artClear').hidden = true; $('artMsg').textContent = 'Estampa removida.'; draw(); partsList(); };
 $('undo').onclick = () => { const u = st.undo.pop(); if (!u) return; st.edit = u; $('undo').disabled = !st.undo.length; compose(); rebuild(true); };
 
 /* toque: mover, pinça para escala, pincel na parede */
