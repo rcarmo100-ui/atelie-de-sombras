@@ -36,26 +36,28 @@ const Sombra = (() => {
     return { lab, sizes };
   }
 
-  /* liga cada ilha solta à moldura pelo caminho mais curto */
-  function connect(a, nx, ny, anchored) {
+  /* liga cada ilha à moldura pelo caminho que menos aparece na parede: perto da base,
+     1 mm da peça vira pouco na sombra; perto da borda livre, vira centímetros */
+  function connect(a, nx, ny, anchored, rowCost) {
     const { lab, sizes } = label(a, nx, ny, 1);
     if (sizes.length <= 1) return a;
     const fixed = new Set([lab[0]]);        // a célula (0,0) está no trilho da base
     if (anchored) for (const k of anchored) fixed.add(lab[k]);
-    const seen = new Uint8Array(a.length), par = new Int32Array(a.length).fill(-1), q = new Int32Array(a.length * 2);
-    let h = 0, t = 0;
-    for (let c = 0; c < a.length; c++) if (fixed.has(lab[c])) { seen[c] = 1; q[t++] = c; }
-    const done = new Set(fixed), path = new Uint8Array(a.length);
-    while (h < t) { const c = q[h++], i = c % nx;
-      for (const n of [i > 0 ? c - 1 : -1, i < nx - 1 ? c + 1 : -1, c >= nx ? c - nx : -1, c < a.length - nx ? c + nx : -1]) {
-        if (n < 0 || seen[n]) continue; seen[n] = 1; par[n] = c;
-        if (a[n] && !done.has(lab[n])) { const id = lab[n]; done.add(id);
-          for (let k = c; k >= 0 && par[k] >= 0; k = par[k]) path[k] = 1;
-          path[c] = 1;
-          for (let m = 0; m < a.length; m++) if (lab[m] === id) { if (!seen[m]) seen[m] = 1; if (t < q.length) q[t++] = m; } }
-        else if (t < q.length) q[t++] = n; } }
-    const th = dilate(path, nx, ny, MINR); const b = a.slice();
-    for (let c = 0; c < a.length; c++) if (th[c]) b[c] = 1;
+    const dist = new Float64Array(a.length).fill(1e30), par = new Int32Array(a.length).fill(-1), done = new Uint8Array(a.length), path = new Uint8Array(a.length);
+    const heap = [], push = (d, c) => { heap.push([d, c]); let i = heap.length - 1; while (i) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+    const pop = () => { const t = heap[0], l = heap.pop(); if (heap.length) { heap[0] = l; let i = 0; for (;;) { let m = i; const x = 2 * i + 1, y = x + 1; if (x < heap.length && heap[x][0] < heap[m][0]) m = x; if (y < heap.length && heap[y][0] < heap[m][0]) m = y; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return t; };
+    for (let c = 0; c < a.length; c++) if (lab[c] >= 0 && fixed.has(lab[c])) { dist[c] = 0; push(0, c); }
+    const seen = new Set(fixed);
+    while (heap.length) { const [d, c] = pop(); if (done[c] || d > dist[c]) continue; done[c] = 1; const i = c % nx, j = (c - i) / nx;
+      if (a[c] && !seen.has(lab[c])) { const id = lab[c]; seen.add(id);
+        for (let k = c; k >= 0 && par[k] >= 0 && !a[k] || k === c; k = par[k]) { if (!a[k]) path[k] = 1; if (par[k] < 0) break; }
+        for (let m = 0; m < a.length; m++) if (lab[m] === id) { dist[m] = 0; done[m] = 0; par[m] = -1; push(0, m); }
+        continue; }
+      for (const n of [i > 0 ? c - 1 : -1, i < nx - 1 ? c + 1 : -1, j > 0 ? c - nx : -1, j < ny - 1 ? c + nx : -1]) {
+        if (n < 0 || done[n]) continue; const w = a[n] ? 0 : (rowCost ? rowCost[(n - n % nx) / nx] : 1), v = d + w;
+        if (v < dist[n]) { dist[n] = v; par[n] = c; push(v, n); } } }
+    const th = dilate(path, nx, ny, 1), b = a.slice();
+    for (let k = 0; k < a.length; k++) if (th[k]) b[k] = 1;
     return b;
   }
 
@@ -119,10 +121,13 @@ const Sombra = (() => {
       for (let j = 0; j < A.ny; j++) { const ia = j * A.nx + A.nx - 1 - col, ib = j * B.nx + col; if (A.a[ia] && B.a[ib]) { const k = (off[n] + A.lab[ia]) + ':' + (off[(n + 1) % 4] + B.lab[ib]); count.set(k, (count.get(k) || 0) + 1); } }
       for (const [k, v] of count) if (v * G >= MIN_GLUE) { const [x, y] = k.split(':').map(Number); par[find(x)] = find(y); } }
     const rootSet = new Set(q.map((pn, n) => find(off[n] + pn.lab[0])));
+    const L = ledZ(p), rowCost = new Float32Array(q[0].ny);
+    for (let j = 0; j < rowCost.length; j++) { const z = BASE + j * G, t = z < L - .5 ? L / (L - z) : L / .5; rowCost[j] = t * t; }
     const o = {};
     q.forEach((pn, n) => { const anchored = [], seen = new Set();
       for (let k = 0; k < pn.a.length; k++) { const l = pn.lab[k]; if (l >= 0 && !seen.has(l)) { seen.add(l); if (rootSet.has(find(off[n] + l))) anchored.push(k); } }
-      pn.a = connect(pn.a, pn.nx, pn.ny, anchored); delete pn.lab;
+      pn.a = connect(pn.a, pn.nx, pn.ny, p.glue ? anchored : null, rowCost); delete pn.lab;
+      const fin = label(pn.a, pn.nx, pn.ny, 1); pn.loose = fin.sizes.length - 1; pn.parts = fin.lab; pn.main = fin.lab[0];
       for (let j = 0; j < pn.ny; j++) for (let i = 0; i < pn.nx; i++) { for (let d = 0; d < RING.indexOf(pn.name) + 1; d++) { const du = i * G - 7 - d * 4, dw = j * G - RAIL / 2; if (du * du + dw * dw < 1) pn.a[j * pn.nx + i] = 0; } }
       let cells = 0; for (let k = 0; k < pn.a.length; k++) cells += pn.a[k]; pn.cells = cells; o[pn.name] = pn; });
     return o;

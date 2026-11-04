@@ -4,7 +4,7 @@ const BOXES = [['Pequena', 110, 125, 70], ['Média', 110, 155, 90], ['Grande', 1
 const maxShadow = (W, H, D) => 2 * Math.sqrt(45 * Math.min(W, H) / 2 * (D - 2));
 const edgeCm = p => (p.S / 2) ** 2 / (Math.min(p.W, p.H) / 2 * Sombra.ledZ(p)) / 10; // parede visível: 1 m
 const st = { gray: null, edit: new Int8Array(N * N), sil: new Uint8Array(N * N), panels: null, tool: 'move', view: 'wall', undo: [], busy: 0,
-  p: { W: 110, H: 155, D: 90, S: 900, ox: 0, oy: 0, frame: false }, thr: 128, inv: false, preview: false };
+  p: { W: 110, H: 155, D: 90, S: 900, ox: 0, oy: 0, frame: false, glue: false }, thr: 128, inv: false, preview: false };
 const cv = $('wall'), ctx = cv.getContext('2d', { willReadFrequently: true }), R = cv.width, img = ctx.createImageData(R, R);
 
 function compose() {
@@ -35,7 +35,7 @@ function drawParts() {
   ctx.textAlign = 'left';
   for (const n of names) { const q = ps[n], c = document.createElement('canvas'); c.width = q.nx; c.height = q.ny;
     const g = c.getContext('2d'), im = g.createImageData(q.nx, q.ny);
-    for (let j = 0; j < q.ny; j++) for (let i = 0; i < q.nx; i++) { const o = (j * q.nx + i) * 4, on = q.a[(q.ny - 1 - j) * q.nx + i]; im.data[o] = 255; im.data[o + 1] = 190; im.data[o + 2] = 107; im.data[o + 3] = on ? 255 : 0; }
+    for (let j = 0; j < q.ny; j++) for (let i = 0; i < q.nx; i++) { const o = (j * q.nx + i) * 4, on = q.a[(q.ny - 1 - j) * q.nx + i], k = (q.ny - 1 - j) * q.nx + i, off = on && q.parts[k] !== q.main; im.data[o] = 255; im.data[o + 1] = off ? 70 : 190; im.data[o + 2] = off ? 60 : 107; im.data[o + 3] = on ? 255 : 0; }
     g.putImageData(im, 0, 0);
     ctx.fillStyle = '#a9a4b4'; ctx.font = '500 18px "IBM Plex Mono",monospace'; ctx.fillText('painel ' + n, 30, y + 14); y += 24;
     ctx.imageSmoothingEnabled = true; ctx.drawImage(c, 30, y, q.len * s, q.Pz * s); y += q.Pz * s + 16; }
@@ -77,6 +77,8 @@ function partsList() {
   const b = grams((2 * (p.W + p.H) * 2 * 23 + p.W * p.H * 2) * 1.05), t = grams(p.W * p.H * 3 * 1.1), c = 1, ph = 4; tot += b + t + c + ph;
   let artLine = ''; if (art.mask) { const [aw, ah] = Sombra.artSize(p), g = grams(aw * ah * Sombra.ART_BASE + art.cells * G * G * (Sombra.ART_TOP - Sombra.ART_BASE)); tot += g; artLine = `<li>Estampa do fundo<span>${aw.toFixed(0)}×${ah.toFixed(0)} mm · ${g} g</span></li>`; }
   html += `<li>Caixa da base<span>${p.W + 7}×${p.H + 7}×25 mm · ${b} g</span></li><li>Tampo<span>${p.W + 7}×${p.H + 7} mm · ${t} g</span></li><li>Portinhola das pilhas<span>85×55 mm · ${ph} g</span></li><li>Haste<span>Ø8 × ${Sombra.postLen(p).toFixed(0)} mm · ${c} g</span></li><li>Tampinha<span>Ø13 mm · 1 g</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
+  const loose = Object.values(q).reduce((s, n) => s + n.loose, 0);
+  $('looseNote').textContent = loose ? `Há ${loose} pedaço(s) solto(s), em vermelho na aba Peças. Eles só ficam presos com cola no canto.` : 'Todos os pedaços estão presos na própria peça.'; $('looseNote').className = loose ? 'warn' : '';
   $('parts').innerHTML = html;
 }
 function setBox(W, H, D) { Object.assign(st.p, { W, H, D }); $('w').value = W; $('h').value = H; $('d').value = D; labels(); if (art.bmp) artMask(); rebuild(); }
@@ -126,6 +128,7 @@ $('blank').onclick = () => { setGray(new Uint8Array(N * N).fill(255)); pick('too
 $('sample').onclick = loadTree;
 $('thr').oninput = e => { st.thr = +e.target.value; labels(); compose(); rebuild(); };
 $('inv').onchange = e => { st.inv = e.target.checked; compose(); rebuild(); };
+$('glue').onchange = e => { st.p.glue = e.target.checked; rebuild(); };
 $('frame').onchange = e => { st.p.frame = e.target.checked; rebuild(); };
 document.querySelectorAll('[data-shadow]').forEach(b => b.onclick = () => setShadow(+b.dataset.shadow));
 document.querySelectorAll('[data-box]').forEach((b, i) => { const q = BOXES[i]; b.textContent = `${q[0]} ${q[1]}×${q[2]}×${q[3]}`; b.onclick = () => { setBox(q[1], q[2], q[3]); setShadow(Math.round(maxShadow(q[1], q[2], q[3]) / 50) * 50 > 1500 ? 1500 : Math.round(maxShadow(q[1], q[2], q[3]) / 50) * 50); }; });
