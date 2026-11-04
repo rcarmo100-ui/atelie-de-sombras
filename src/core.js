@@ -54,7 +54,8 @@ const Sombra = (() => {
         for (let m = 0; m < a.length; m++) if (lab[m] === id) { dist[m] = 0; done[m] = 0; par[m] = -1; push(0, m); }
         continue; }
       for (const n of [i > 0 ? c - 1 : -1, i < nx - 1 ? c + 1 : -1, j > 0 ? c - nx : -1, j < ny - 1 ? c + nx : -1]) {
-        if (n < 0 || done[n]) continue; const w = a[n] ? 0 : (rowCost ? rowCost[(n - n % nx) / nx] : 1), v = d + w;
+        if (n < 0 || done[n]) continue; const col = n % nx, edge = col < 5 || col >= nx - 5 ? .12 : 1;   // pontas do painel: encostam na peça vizinha
+        const w = a[n] ? 0 : (rowCost ? rowCost[(n - col) / nx] : 1) * edge, v = d + w;
         if (v < dist[n]) { dist[n] = v; par[n] = c; push(v, n); } } }
     const th = dilate(path, nx, ny, 1), b = a.slice();
     for (let k = 0; k < a.length; k++) if (th[k]) b[k] = 1;
