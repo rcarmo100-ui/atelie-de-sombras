@@ -236,6 +236,7 @@ const Sombra = (() => {
 
   /* extruda polígonos (anéis externos CCW, furos CW) de z0 a z1 */
   function prism(tris, rings, z0, z1) {
+    (tris.breaks = tris.breaks || []).push(tris.length);   // cada prisma é uma casca fechada no 3MF
     const outers = rings.filter(r => area(r) > 0).sort((a, b) => area(a) - area(b));
     const holes = rings.filter(r => area(r) < 0), groups = outers.map(o => ({ o, h: [] }));
     for (const h of holes) { const g = groups.find(g => inside(h[0], g.o)); if (g) g.h.push(h); }
@@ -371,6 +372,24 @@ const Sombra = (() => {
     return out;
   }
 
+  /* 3MF: cada peça vira um objeto com nome, que o fatiador move e apaga separadamente */
+  function threeMF(parts, bedW = 250, gap = 6) {
+    const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;'), objs = [], items = []; let x = 0, y = 0, row = 0;
+    parts.forEach((q, n) => { const t = q.tris, stops = new Set(t.breaks || []), vs = [], tris = []; let map = new Map(); let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9, z0 = 1e9;
+      for (let i = 0; i < t.length; i += 3) { x0 = Math.min(x0, t[i]); x1 = Math.max(x1, t[i]); y0 = Math.min(y0, t[i + 1]); y1 = Math.max(y1, t[i + 1]); z0 = Math.min(z0, t[i + 2]); }
+      const id = i => { const a = (t[i] - x0).toFixed(3), b = (t[i + 1] - y0).toFixed(3), e = (t[i + 2] - z0).toFixed(3), k = a + ' ' + b + ' ' + e; let v = map.get(k); if (v === undefined) { v = vs.length; map.set(k, v); vs.push(`<vertex x="${a}" y="${b}" z="${e}"/>`); } return v; };
+      for (let i = 0; i < t.length; i += 9) { if (stops.has(i)) map = new Map(); const a = id(i), b = id(i + 3), e = id(i + 6); if (a !== b && b !== e && a !== e) tris.push(`<triangle v1="${a}" v2="${b}" v3="${e}"/>`); }
+      objs.push(`<object id="${n + 1}" name="${esc(q.name)}" type="model"><mesh><vertices>${vs.join('')}</vertices><triangles>${tris.join('')}</triangles></mesh></object>`);
+      const w = x1 - x0, h = y1 - y0; if (x > 0 && x + w > bedW) { x = 0; y += row + gap; row = 0; }
+      items.push(`<item objectid="${n + 1}" transform="1 0 0 0 1 0 0 0 1 ${x.toFixed(2)} ${y.toFixed(2)} 0"/>`); x += w + gap; row = Math.max(row, h); });
+    const te = new TextEncoder();
+    return zip([
+      { name: '[Content_Types].xml', data: te.encode('<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>') },
+      { name: '_rels/.rels', data: te.encode('<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>') },
+      { name: '3D/3dmodel.model', data: te.encode(`<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xml:lang="pt-BR" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02"><metadata name="Title">Luminária de sombra</metadata><metadata name="Application">Ateliê de Sombras</metadata><resources>${objs.join('')}</resources><build>${items.join('')}</build></model>`) }
+    ]);
+  }
+
   const crcT = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
   const crc32 = d => { let c = ~0; for (let i = 0; i < d.length; i++) c = crcT[(c ^ d[i]) & 255] ^ (c >>> 8); return (~c) >>> 0; };
   function zip(files) { // sem compressão: STL binário abre em qualquer fatiador
@@ -399,6 +418,6 @@ const Sombra = (() => {
     disc(N * .84, N * .13, 0); return a;
   }
 
-  return { N, G, WALL, BASE, ledZ, postLen, artSize, FL, POST_OD, GAP, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, boxTris, hatchTris, plateTris, postTris, capTris, testParts, panelTris, stl, zip, tree, contours, SIDES };
+  return { N, G, WALL, BASE, threeMF, ledZ, postLen, artSize, FL, POST_OD, GAP, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, boxTris, hatchTris, plateTris, postTris, capTris, testParts, panelTris, stl, zip, tree, contours, SIDES };
 })();
 if (typeof module !== 'undefined') module.exports = Sombra;

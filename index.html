@@ -139,11 +139,12 @@
       <input type="range" id="fit" min="-30" max="60" step="5" value="0"></div>
     <p>Encaixe justo demais: aumente. Encaixe solto: diminua. Vale para o kit e para as peças finais.</p>
     <h2>Luminária completa</h2>
+    <button class="btn main" id="save3mf">Projeto completo em 3MF</button>
     <div class="row">
-      <button class="btn main" id="saveZip">Peças em ZIP</button>
+      <button class="btn main alt" id="saveZip">Peças em ZIP</button>
       <button class="btn main alt" id="saveStl">STL único</button>
     </div>
-    <p id="saveMsg" role="status">ZIP: um STL por peça. STL único: tudo em um arquivo; no fatiador, use Dividir em objetos e distribua nas bandejas.</p>
+    <p id="saveMsg" role="status">3MF: abre no fatiador com cada peça separada e com nome, para mover, apagar e distribuir nas bandejas. ZIP: um STL por peça. STL único: fica tudo junto; use Dividir em objetos.</p>
     <p id="looseNote" role="status"></p>
     <label class="check"><input type="checkbox" id="glue"> Aceitar pedaços soltos, colados nos cantos (menos riscos na sombra)</label>
     <ul class="list" id="parts"></ul>

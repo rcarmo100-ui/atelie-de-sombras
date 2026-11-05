@@ -211,16 +211,17 @@ function buildParts() { const p = st.p, list = [];
   if (art.bmp && artMask()) list.push({ name: 'estampa-fundo', tris: Sombra.artTris(art.mask, p) });
   return list; }
 function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa de ${p.W} x ${p.H} mm, profundidade total de ${p.D} mm, frente aberta. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima em filamento preto opaco: 0,2 mm, bico 0,4, sem raft e sem suportes.\nA haste é impressa em pé, com brim.\nOs encaixes ainda precisam ser validados na sua impressora: imprima primeiro a caixa Pequena.\nMonte seguindo o manual no site.\n`; }
-async function exportAs(kind) { const msg = $('saveMsg'), btns = [$('saveZip'), $('saveStl')]; clearTimeout(timer); btns.forEach(b => b.disabled = true); msg.className = ''; msg.textContent = 'Gerando as peças…';
+async function exportAs(kind) { const msg = $('saveMsg'), btns = [$('saveZip'), $('saveStl'), $('save3mf')]; clearTimeout(timer); btns.forEach(b => b.disabled = true); msg.className = ''; msg.textContent = 'Gerando as peças…';
   await new Promise(r => setTimeout(r, 30));
   try { const parts = buildParts();
     if (kind === 'zip') { const files = parts.map(q => ({ name: q.name + '.stl', data: Sombra.stl(q.tris, q.name) })); files.push({ name: 'LEIA-ME.txt', data: new TextEncoder().encode(readme()) }); offerFile(Sombra.zip(files), 'luminaria-pecas.zip', msg); }
+    else if (kind === '3mf') offerFile(Sombra.threeMF(parts), 'luminaria-completa.3mf', msg);
     else offerFile(new Blob([Sombra.stl(Sombra.merge(parts.map(q => q.tris)), 'luminaria')], { type: 'model/stl' }), 'luminaria-completa.stl', msg); }
   catch { msg.textContent = 'Não consegui gerar o arquivo. Tente de novo.'; msg.className = 'warn'; }
   btns.forEach(b => b.disabled = false); }
 $('fit').oninput = e => { st.p.fit = +e.target.value / 100; labels(); Room.dirty(); };
 $('saveTest').onclick = () => { const msg = $('saveMsg'), parts = Sombra.testParts(st.p), files = parts.map(q => ({ name: q.name + '.stl', data: Sombra.stl(q.tris, q.name) })); files.push({ name: 'LEIA-ME.txt', data: new TextEncoder().encode(`Peça de teste do Ateliê de Sombras\nFolga usada: ${st.p.fit.toFixed(2).replace('.', ',')} mm\n\nConfira: painel na fenda, tampo travando nas presilhas, haste deslizando no anel e interruptor na janela.\nSe estiver justo, aumente a folga. Se estiver solto, diminua.\n`) }); offerFile(Sombra.zip(files), 'teste-encaixes.zip', msg); };
-$('saveZip').onclick = () => exportAs('zip'); $('saveStl').onclick = () => exportAs('stl');
+$('save3mf').onclick = () => exportAs('3mf'); $('saveZip').onclick = () => exportAs('zip'); $('saveStl').onclick = () => exportAs('stl');
 
 $('openManual').onclick = $('openManual2').onclick = () => Manual.open(st.p);
 /* projetos salvos neste aparelho; o arquivo leva o projeto para outro aparelho */
