@@ -9,6 +9,7 @@ Site estático, sem etapa de build: `index.html` carrega `src/`. Para testar loc
 
 - `src/core.js`: geometria, simulação da sombra, malhas, STL e ZIP
 - `src/app.js`: interface
+- `src/convert.js`: conversor de imagem para sombra
 - `src/room.js`: quarto 3D
 - `vendor/earcut.min.js`: triangulação (licença ISC, em `vendor/earcut-LICENSE`)
 - `vendor/three.min.js`: 3D (licença MIT, em `vendor/three-LICENSE`)

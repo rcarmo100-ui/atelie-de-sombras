@@ -79,6 +79,7 @@ function partsList() {
   html += `<li>Caixa da base<span>${p.W + 7}×${p.H + 7}×25 mm · ${b} g</span></li><li>Tampo<span>${p.W + 7}×${p.H + 7} mm · ${t} g</span></li><li>Portinhola das pilhas<span>85×55 mm · ${ph} g</span></li><li>Haste<span>Ø8 × ${Sombra.postLen(p).toFixed(0)} mm · ${c} g</span></li><li>Tampinha<span>Ø13 mm · 1 g</span></li>${artLine}<li><b>Filamento estimado</b><span>${tot} g</span></li>`;
   const loose = Object.values(q).reduce((s, n) => s + n.loose, 0);
   $('looseNote').textContent = loose ? `Há ${loose} pedaço(s) solto(s), em vermelho na aba Peças. Eles só ficam presos com cola no canto.` : 'Todos os pedaços estão presos na própria peça.'; $('looseNote').className = loose ? 'warn' : '';
+  const hug = Conversor.check(st.sil, st.p); $('hugNote').textContent = `Desenho em volta da caixa: ${Math.round(hug * 100)}%. ` + (hug >= .8 ? 'Ótimo: quase não precisa de ligações.' : hug >= .4 ? 'Razoável: podem surgir riscos finos.' : 'Pouco escuro em volta: use a conversão ou aumente a sombra.'); $('hugNote').className = hug >= .4 ? '' : 'warn';
   $('parts').innerHTML = html;
 }
 function setBox(W, H, D) { Object.assign(st.p, { W, H, D }); $('w').value = W; $('h').value = H; $('d').value = D; labels(); if (art.bmp) artMask(); rebuild(); }
@@ -113,7 +114,7 @@ function useImage(bmp, auto) {
 }
 async function takeFile(f) {
   if (!f) return; fileMsg('Carregando a imagem…');
-  try { useImage(await openImage(f), true); pick('view', 'wall'); fileMsg('Imagem carregada: ' + f.name); }
+  try { convPrev = null; $('convUndo').hidden = true; useImage(await openImage(f), true); pick('view', 'wall'); fileMsg('Imagem carregada: ' + f.name); }
   catch { fileMsg('Não consegui ler esse arquivo. Envie em PNG ou JPG; fotos HEIC do iPhone podem falhar.', true); }
 }
 let picking = false;
@@ -187,6 +188,15 @@ $('best').onclick = async () => { const b = $('best'), p = st.p; clearTimeout(ti
   catch { $('bestMsg').textContent = 'Não consegui calcular. Tente de novo.'; }
   b.disabled = false; };
 $('bestUndo').onclick = () => { if (!lastPos) return; Object.assign(st.p, lastPos); lastPos = null; $('bestUndo').hidden = true; $('bestMsg').textContent = 'Posição anterior restaurada.'; rebuild(true); };
+let convMode = 'solida', convPrev = null;
+document.querySelectorAll('[data-conv]').forEach(b => b.onclick = () => { convMode = b.dataset.conv; document.querySelectorAll('[data-conv]').forEach(x => x.setAttribute('aria-pressed', x === b)); });
+$('convert').onclick = async () => { const b = $('convert'), base = convPrev ? convPrev.gray : st.gray; b.disabled = true; $('convMsg').textContent = 'Convertendo…'; await new Promise(r => setTimeout(r, 30));
+  try { const r = Conversor.convert(base, convMode, st.p); if (!convPrev) convPrev = { gray: st.gray, thr: st.thr, inv: st.inv, S: st.p.S, ox: st.p.ox, oy: st.p.oy };
+    st.thr = 128; $('thr').value = 128; st.inv = false; $('inv').checked = false; Object.assign(st.p, { S: r.S, ox: r.ox, oy: r.oy, frame: false }); $('frame').checked = false; $('size').value = r.S; labels(); setGray(r.gray);
+    $('convUndo').hidden = false; $('convMsg').textContent = `Pronto. Sombra de ${Math.round(r.S / 10)} cm, com a caixa no miolo do desenho.` + (r.hug < .98 ? ' O miolo era estreito, então engrossei a área atrás da caixa.' : ''); }
+  catch { $('convMsg').textContent = 'Não consegui converter esta imagem. Tente outro tipo de conversão.'; }
+  b.disabled = false; };
+$('convUndo').onclick = () => { if (!convPrev) return; const c = convPrev; convPrev = null; st.thr = c.thr; st.inv = c.inv; $('thr').value = c.thr; $('inv').checked = c.inv; Object.assign(st.p, { S: c.S, ox: c.ox, oy: c.oy }); $('size').value = c.S; labels(); setGray(c.gray); $('convUndo').hidden = true; $('convMsg').textContent = 'Imagem original restaurada.'; };
 function offerFile(blob, name, msg) { const url = URL.createObjectURL(blob), l = document.createElement('a'); l.href = url; l.download = name; document.body.append(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 60000); msg.textContent = name + ' baixado.'; msg.className = ''; }
 function buildParts() { const p = st.p, list = [];
   st.panels = st.panels || Sombra.buildAll(st.sil, p);

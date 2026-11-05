@@ -66,6 +66,16 @@
     </div>
     <div id="pasteBox" class="paste" contenteditable="true" role="textbox" aria-label="Colar imagem" data-ph="Ou segure aqui e toque em Colar para usar uma imagem copiada"></div>
     <p id="fileMsg" role="status">Envie PNG, JPG ou WebP.</p>
+    <div class="conv">
+      <h2>Converter para sombra</h2>
+      <div class="seg" role="group" aria-label="Tipo de conversão">
+        <button data-conv="solida" aria-pressed="true">Silhueta</button><button data-conv="detalhes" aria-pressed="false">Com detalhes</button><button data-conv="recorte" aria-pressed="false">Preto e branco</button>
+      </div>
+      <button class="btn main" id="convert">Converter e encaixar na caixa</button>
+      <button class="btn" id="convUndo" hidden>Voltar à imagem original</button>
+      <p id="convMsg" role="status">Tira o fundo, simplifica, liga as partes e coloca a caixa no meio do desenho.</p>
+      <p id="hugNote"></p>
+    </div>
     <button class="btn" id="sample">Usar a árvore de exemplo</button>
     <div class="field"><label for="thr">Limite entre claro e escuro</label><output id="thrOut"></output>
       <input type="range" id="thr" min="10" max="245" value="128"></div>
@@ -123,6 +133,7 @@
 </div>
 <script src="vendor/earcut.min.js"></script>
 <script src="src/core.js"></script>
+<script src="src/convert.js"></script>
 <script src="src/room.js"></script>
 <script src="src/manual.js"></script>
 <script src="src/app.js"></script>
