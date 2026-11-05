@@ -86,3 +86,8 @@ header{flex-wrap:wrap}header h1{flex:1 1 auto;min-width:0}
 @keyframes aP{50%{opacity:.35}}@keyframes aF{to{stroke-dashoffset:-14}}}
 .mimg{width:100%;height:auto;display:block;border-radius:6px;background:#191821}
 .conv{display:flex;flex-direction:column;gap:10px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding-block:12px}
+.tabs .seg button{font-size:.82rem}
+.txt{grid-column:1/-1;width:100%;min-height:42px;background:var(--room);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:0 10px;font:500 1rem var(--body)}
+.projs{display:flex;flex-direction:column}
+.proj{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+.proj span{min-width:0;overflow-wrap:anywhere;font-size:.92rem}

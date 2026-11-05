@@ -4,7 +4,7 @@ const BOXES = [['Pequena', 110, 125, 70], ['Média', 110, 155, 90], ['Grande', 1
 const maxShadow = (W, H, D) => 2 * Math.sqrt(45 * Math.min(W, H) / 2 * (D - 2));
 const edgeCm = p => (p.S / 2) ** 2 / (Math.min(p.W, p.H) / 2 * Sombra.ledZ(p)) / 10; // parede visível: 1 m
 const st = { gray: null, edit: new Int8Array(N * N), sil: new Uint8Array(N * N), panels: null, tool: 'move', view: 'wall', undo: [], busy: 0,
-  p: { W: 110, H: 155, D: 90, S: 900, ox: 0, oy: 0, frame: false, glue: false }, thr: 128, inv: false, preview: false };
+  p: { W: 110, H: 155, D: 90, S: 900, ox: 0, oy: 0, frame: false, glue: false, fit: 0 }, thr: 128, inv: false, preview: false };
 const cv = $('wall'), ctx = cv.getContext('2d', { willReadFrequently: true }), R = cv.width, img = ctx.createImageData(R, R);
 
 function compose() {
@@ -41,11 +41,10 @@ function drawParts() {
     ctx.imageSmoothingEnabled = true; ctx.drawImage(c, 30, y, q.len * s, q.Pz * s); y += q.Pz * s + 16; }
 }
 /* estampa do fundo: imagem própria, independente da sombra */
-const art = { bmp: null, thr: 128, inv: false, mask: null, cells: 0 };
+const art = { bmp: null, thr: 128, inv: false, mask: null, cells: 0, crop: { z: 1, x: 0, y: 0 } };
 function artMask() { if (!art.bmp) return null; const G = Sombra.G, [aw, ah] = Sombra.artSize(st.p), nx = Math.round(aw / G) + 1, ny = Math.round(ah / G) + 1;
   const c = document.createElement('canvas'); c.width = nx; c.height = ny; const g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#fff'; g.fillRect(0, 0, nx, ny);
-  const iw = art.bmp.naturalWidth || art.bmp.width, ih = art.bmp.naturalHeight || art.bmp.height, m = 2 / G, s = Math.min((nx - 2 * m) / iw, (ny - 2 * m) / ih);
-  g.drawImage(art.bmp, (nx - iw * s) / 2, (ny - ih * s) / 2, iw * s, ih * s);
+  drawCrop(g, art.bmp, nx, ny, art.crop, 2 / G);
   const d = g.getImageData(0, 0, nx, ny).data, a = new Uint8Array(nx * ny);
   for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) { const o = ((ny - 1 - j) * nx + i) * 4, v = (d[o] * 77 + d[o + 1] * 150 + d[o + 2] * 29) >> 8; a[j * nx + i] = (v < art.thr) !== art.inv ? 1 : 0; }
   Sombra.artClean(a, nx, ny); let n = 0; for (let k = 0; k < a.length; k++) n += a[k];
@@ -90,6 +89,7 @@ function labels() {
   $('detailNote').textContent = `Na borda da sombra, 1 mm da parede da caixa vira cerca de ${e.toFixed(1).replace('.', ',')} cm. ` + (ok ? 'Boa medida para este tamanho.' : 'Para ter mais detalhe, aumente a caixa ou diminua a sombra.'); $('detailNote').className = ok ? '' : 'warn';
   document.querySelectorAll('[data-shadow]').forEach(b => b.setAttribute('aria-pressed', +b.dataset.shadow === p.S));
   document.querySelectorAll('[data-box]').forEach((b, i) => { const q = BOXES[i]; b.setAttribute('aria-pressed', q[1] === p.W && q[2] === p.H && q[3] === p.D); });
+  $('fitOut').textContent = (st.p.fit >= 0 ? '+' : '') + st.p.fit.toFixed(2).replace('.', ',') + ' mm';
   $('ledNote').textContent = `O LED fica a ${Sombra.ledZ(p)} mm da parede, acima da haste impressa.`;
 }
 function setGray(a) { st.gray = a; st.edit.fill(0); st.undo = []; $('undo').disabled = true; compose(); rebuild(true); }
@@ -102,15 +102,19 @@ async function openImage(f) {
   try { return await createImageBitmap(f); } catch {}
   return decode(await asDataUrl(f));
 }
+const shadowCrop = { z: 1, x: 0, y: 0 };
+function drawCrop(g, bmp, w, h, crop, margin = 0) { const iw = bmp.naturalWidth || bmp.width, ih = bmp.naturalHeight || bmp.height, s = Math.min((w - 2 * margin) / iw, (h - 2 * margin) / ih) * crop.z, dw = iw * s, dh = ih * s;
+  g.drawImage(bmp, (w - dw) / 2 + crop.x * dw / 2, (h - dh) / 2 + crop.y * dh / 2, dw, dh); }
 function useImage(bmp, auto) {
-  const iw = bmp.naturalWidth || bmp.width, ih = bmp.naturalHeight || bmp.height;
+  st.src = bmp; if (auto) { Object.assign(shadowCrop, { z: 1, x: 0, y: 0 }); $('cropZ').value = 100; $('cropX').value = 0; $('cropY').value = 0; }
+  $('cropBox').hidden = false;
   const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d', { willReadFrequently: true }); g.fillStyle = '#fff'; g.fillRect(0, 0, N, N);
-  const s = Math.min(N / iw, N / ih); g.drawImage(bmp, (N - iw * s) / 2, (N - ih * s) / 2, iw * s, ih * s);
+  drawCrop(g, bmp, N, N, shadowCrop);
   const d = g.getImageData(0, 0, N, N).data, a = new Uint8Array(N * N), hist = new Array(256).fill(0);
   for (let i = 0; i < N * N; i++) { const v = (d[i * 4] * 77 + d[i * 4 + 1] * 150 + d[i * 4 + 2] * 29) >> 8; a[i] = v; hist[v]++; }
   let sum = 0, sB = 0, wB = 0, best = 0, T = 128; for (let i = 0; i < 256; i++) sum += i * hist[i];
   if (auto) for (let i = 0; i < 256; i++) { wB += hist[i]; if (!wB) continue; const wF = N * N - wB; if (!wF) break; sB += i * hist[i]; const m = (sB / wB - (sum - sB) / wF) ** 2 * wB * wF; if (m > best) { best = m; T = i; } }
-  st.thr = Math.max(10, Math.min(245, T)); $('thr').value = st.thr; st.inv = false; $('inv').checked = false; st.p.ox = st.p.oy = 0; labels(); setGray(a);
+  if (auto) { st.thr = Math.max(10, Math.min(245, T)); $('thr').value = st.thr; st.inv = false; $('inv').checked = false; st.p.ox = st.p.oy = 0; } labels(); setGray(a);
 }
 async function takeFile(f) {
   if (!f) return; fileMsg('Carregando a imagem…');
@@ -141,11 +145,11 @@ $('brush').oninput = labels;
 function pick(kind, v) {
   if (kind === 'tool') { st.tool = v; for (const [id, t] of [['tMove', 'move'], ['tDraw', 'draw'], ['tErase', 'erase']]) $(id).setAttribute('aria-pressed', t === v); $('brushField').hidden = v === 'move'; if (st.view !== 'wall') pick('view', 'wall'); else draw(); }
   if (kind === 'view') { st.view = v; viewButtons(); draw(); }
-  if (kind === 'step') { for (const n of [1, 2, 3]) { $('p' + n).hidden = n !== v; $('s' + n).setAttribute('aria-pressed', n === v); } $('p2b').hidden = v !== 2; }
+  if (kind === 'step') { for (const n of [1, 2, 3, 4]) { $('p' + n).hidden = n !== v; $('s' + n).setAttribute('aria-pressed', n === v); } $('p2b').hidden = v !== 2; }
 }
 $('tMove').onclick = () => pick('tool', 'move'); $('tDraw').onclick = () => pick('tool', 'draw'); $('tErase').onclick = () => pick('tool', 'erase');
 $('vWall').onclick = () => pick('view', 'wall'); $('vParts').onclick = () => pick('view', 'parts');
-[1, 2, 3].forEach(n => $('s' + n).onclick = () => pick('step', n));
+[1, 2, 3, 4].forEach(n => $('s' + n).onclick = () => pick('step', n));
 $('vFront').onclick = () => pick('view', 'front');
 $('vRoom').onclick = () => pick('view', 'room');
 $('rLed').onchange = e => Room.set('on', e.target.checked);
@@ -154,11 +158,13 @@ $('rColor').onchange = e => Room.set('led', e.target.value);
 $('rWall').onchange = e => Room.set('wall', e.target.value);
 $('cFront').onclick = () => Room.view(0, 1.5, 2.7); $('cSide').onclick = () => Room.view(1.1, 1.45, 1.9); $('cNear').onclick = () => Room.view(.55, 1.4, .55); $('cBed').onclick = () => Room.view(-.5, 1.65, 2.6);
 $('artFile').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; $('artMsg').textContent = 'Carregando a imagem…'; $('artMsg').className = '';
-  try { art.bmp = await openImage(f); $('artClear').hidden = false; artChanged(); $('artMsg').textContent = 'Estampa carregada: ' + f.name; }
+  try { art.bmp = await openImage(f); Object.assign(art.crop, { z: 1, x: 0, y: 0 }); $('aCropZ').value = 100; $('aCropX').value = 0; $('aCropY').value = 0; $('artClear').hidden = false; $('artCrop').hidden = false; artChanged(); $('artMsg').textContent = 'Estampa carregada: ' + f.name; }
   catch { $('artMsg').textContent = 'Não consegui ler esse arquivo. Envie em PNG ou JPG.'; $('artMsg').className = 'warn'; } });
+for (const [id, k, d] of [['aCropZ', 'z', 100], ['aCropX', 'x', 100], ['aCropY', 'y', 100]]) $(id).oninput = e => { art.crop[k] = +e.target.value / d; if (art.bmp) artChanged(); };
+for (const [id, k, d] of [['cropZ', 'z', 100], ['cropX', 'x', 100], ['cropY', 'y', 100]]) $(id).oninput = e => { shadowCrop[k] = +e.target.value / d; if (st.src) { convPrev = null; $('convUndo').hidden = true; useImage(st.src, false); } };
 $('artThr').oninput = e => { art.thr = +e.target.value; artChanged(); };
 $('artInv').onchange = e => { art.inv = e.target.checked; artChanged(); };
-$('artClear').onclick = () => { art.bmp = art.mask = null; Room.dirty(); $('artClear').hidden = true; $('artMsg').textContent = 'Estampa removida.'; draw(); partsList(); };
+$('artClear').onclick = () => { art.bmp = art.mask = null; Room.dirty(); $('artClear').hidden = true; $('artCrop').hidden = true; $('artMsg').textContent = 'Estampa removida.'; draw(); partsList(); };
 $('undo').onclick = () => { const u = st.undo.pop(); if (!u) return; st.edit = u; $('undo').disabled = !st.undo.length; compose(); rebuild(true); };
 
 /* toque: mover, pinça para escala, pincel na parede */
@@ -201,7 +207,7 @@ function offerFile(blob, name, msg) { const url = URL.createObjectURL(blob), l =
 function buildParts() { const p = st.p, list = [];
   st.panels = st.panels || Sombra.buildAll(st.sil, p);
   for (const n in st.panels) list.push({ name: 'painel-' + n, tris: Sombra.panelTris(st.panels[n]) });
-  list.push({ name: 'caixa-base', tris: Sombra.boxTris(p) }, { name: 'tampo', tris: Sombra.plateTris(p) }, { name: 'portinhola-pilhas', tris: Sombra.hatchTris() }, { name: 'haste', tris: Sombra.postTris(p) }, { name: 'tampinha', tris: Sombra.capTris() });
+  list.push({ name: 'caixa-base', tris: Sombra.boxTris(p) }, { name: 'tampo', tris: Sombra.plateTris(p) }, { name: 'portinhola-pilhas', tris: Sombra.hatchTris(p) }, { name: 'haste', tris: Sombra.postTris(p) }, { name: 'tampinha', tris: Sombra.capTris() });
   if (art.bmp && artMask()) list.push({ name: 'estampa-fundo', tris: Sombra.artTris(art.mask, p) });
   return list; }
 function readme() { const p = st.p; return `Ateliê de Sombras\nCaixa de ${p.W} x ${p.H} mm, profundidade total de ${p.D} mm, frente aberta. Sombra de ${Math.round(p.S / 10)} cm. LED a ${Sombra.ledZ(p)} mm da parede.\n\nImprima em filamento preto opaco: 0,2 mm, bico 0,4, sem raft e sem suportes.\nA haste é impressa em pé, com brim.\nOs encaixes ainda precisam ser validados na sua impressora: imprima primeiro a caixa Pequena.\nMonte seguindo o manual no site.\n`; }
@@ -212,8 +218,29 @@ async function exportAs(kind) { const msg = $('saveMsg'), btns = [$('saveZip'), 
     else offerFile(new Blob([Sombra.stl(Sombra.merge(parts.map(q => q.tris)), 'luminaria')], { type: 'model/stl' }), 'luminaria-completa.stl', msg); }
   catch { msg.textContent = 'Não consegui gerar o arquivo. Tente de novo.'; msg.className = 'warn'; }
   btns.forEach(b => b.disabled = false); }
+$('fit').oninput = e => { st.p.fit = +e.target.value / 100; labels(); Room.dirty(); };
+$('saveTest').onclick = () => { const msg = $('saveMsg'), parts = Sombra.testParts(st.p), files = parts.map(q => ({ name: q.name + '.stl', data: Sombra.stl(q.tris, q.name) })); files.push({ name: 'LEIA-ME.txt', data: new TextEncoder().encode(`Peça de teste do Ateliê de Sombras\nFolga usada: ${st.p.fit.toFixed(2).replace('.', ',')} mm\n\nConfira: painel na fenda, tampo travando nas presilhas, haste deslizando no anel e interruptor na janela.\nSe estiver justo, aumente a folga. Se estiver solto, diminua.\n`) }); offerFile(Sombra.zip(files), 'teste-encaixes.zip', msg); };
 $('saveZip').onclick = () => exportAs('zip'); $('saveStl').onclick = () => exportAs('stl');
 
 $('openManual').onclick = $('openManual2').onclick = () => Manual.open(st.p);
-labels(); loadTree();
+/* projetos salvos neste aparelho; o arquivo leva o projeto para outro aparelho */
+const KEY = 'atelieProjetos';
+const readAll = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };
+const writeAll = l => { try { localStorage.setItem(KEY, JSON.stringify(l)); return true; } catch { return false; } };
+function grayUrl() { const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), d = g.createImageData(N, N); for (let i = 0; i < N * N; i++) { const v = st.sil[i] > 127 ? 0 : 255; d.data[i * 4] = d.data[i * 4 + 1] = d.data[i * 4 + 2] = v; d.data[i * 4 + 3] = 255; } g.putImageData(d, 0, 0); return c.toDataURL('image/png'); }
+function artUrl() { if (!art.bmp) return null; const iw = art.bmp.naturalWidth || art.bmp.width, ih = art.bmp.naturalHeight || art.bmp.height, k = Math.min(1, 900 / Math.max(iw, ih)), c = document.createElement('canvas'); c.width = iw * k; c.height = ih * k; c.getContext('2d').drawImage(art.bmp, 0, 0, c.width, c.height); return c.toDataURL('image/png'); }
+const snapshot = name => ({ name, date: new Date().toISOString(), p: { ...st.p }, sil: grayUrl(), art: artUrl(), artThr: art.thr, artInv: art.inv, artCrop: { ...art.crop } });
+async function openProject(q) { const i = await decode(q.sil), c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d', { willReadFrequently: true }); g.drawImage(i, 0, 0, N, N); const d = g.getImageData(0, 0, N, N).data, a = new Uint8Array(N * N); for (let k = 0; k < N * N; k++) a[k] = d[k * 4];
+  Object.assign(st.p, q.p); st.src = null; $('cropBox').hidden = true; convPrev = null; $('convUndo').hidden = true; st.thr = 128; $('thr').value = 128; st.inv = false; $('inv').checked = false;
+  $('w').value = st.p.W; $('h').value = st.p.H; $('d').value = st.p.D; $('size').value = st.p.S; $('frame').checked = !!st.p.frame; $('glue').checked = !!st.p.glue; $('fit').value = Math.round((st.p.fit || 0) * 100);
+  art.bmp = q.art ? await decode(q.art) : null; art.mask = null; art.thr = q.artThr || 128; art.inv = !!q.artInv; Object.assign(art.crop, q.artCrop || { z: 1, x: 0, y: 0 }); $('artThr').value = art.thr; $('artInv').checked = art.inv; $('artClear').hidden = !art.bmp; $('artCrop').hidden = !art.bmp; if (art.bmp) artMask();
+  Room.dirty(); labels(); setGray(a); $('projName').value = q.name; pick('view', 'wall'); }
+function listProjects() { const l = readAll(), box = $('projList'); box.textContent = ''; $('projEmpty').hidden = !!l.length;
+  l.forEach((q, i) => { const r = document.createElement('div'); r.className = 'proj'; const t = document.createElement('span'); t.textContent = q.name; const o = document.createElement('button'); o.className = 'btn slim'; o.textContent = 'Abrir'; o.onclick = async () => { await openProject(q); $('projMsg').textContent = `Projeto ${q.name} aberto.`; };
+    const x = document.createElement('button'); x.className = 'btn slim'; x.textContent = 'Excluir'; x.onclick = () => { if (x.dataset.sure) { const m = readAll(); m.splice(i, 1); writeAll(m); listProjects(); $('projMsg').textContent = `Projeto ${q.name} excluído.`; } else { x.dataset.sure = 1; x.textContent = 'Confirmar'; } };
+    r.append(t, o, x); box.append(r); }); }
+$('projSave').onclick = () => { const name = $('projName').value.trim() || 'Sem nome', l = readAll(), q = snapshot(name), at = l.findIndex(x => x.name === name); if (at >= 0) l[at] = q; else l.unshift(q); const ok = writeAll(l); $('projMsg').textContent = ok ? `Projeto ${name} salvo neste aparelho.` : 'Sem espaço neste aparelho. Use Salvar em arquivo.'; $('projMsg').className = ok ? '' : 'warn'; listProjects(); };
+$('projExport').onclick = () => { const name = $('projName').value.trim() || 'luminaria'; offerFile(new Blob([JSON.stringify(snapshot(name))], { type: 'application/json' }), name.replace(/[^a-z0-9-]+/gi, '-') + '.sombra.json', $('projMsg')); };
+$('projImport').addEventListener('change', async e => { const f = e.target.files[0]; if (!f) return; e.target.value = ''; try { const q = JSON.parse(await f.text()); if (!q.sil || !q.p) throw 0; await openProject(q); $('projMsg').textContent = `Projeto ${q.name} aberto.`; $('projMsg').className = ''; } catch { $('projMsg').textContent = 'Este arquivo não é um projeto do ateliê.'; $('projMsg').className = 'warn'; } });
+labels(); loadTree(); listProjects();
 if (location.hash === '#manual') Manual.open(st.p);

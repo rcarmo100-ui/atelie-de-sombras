@@ -57,6 +57,7 @@
     <button id="s1" aria-pressed="true">Sombra</button>
     <button id="s2" aria-pressed="false">Luminária</button>
     <button id="s3" aria-pressed="false">Imprimir</button>
+    <button id="s4" aria-pressed="false">Projetos</button>
   </div></div>
 
   <section id="p1">
@@ -66,6 +67,12 @@
     </div>
     <div id="pasteBox" class="paste" contenteditable="true" role="textbox" aria-label="Colar imagem" data-ph="Ou segure aqui e toque em Colar para usar uma imagem copiada"></div>
     <p id="fileMsg" role="status">Envie PNG, JPG ou WebP.</p>
+    <div class="conv" id="cropBox" hidden>
+      <h2>Recortar a imagem</h2>
+      <div class="field"><label for="cropZ">Aproximar</label><input type="range" id="cropZ" min="100" max="400" value="100"></div>
+      <div class="field"><label for="cropX">Mover para os lados</label><input type="range" id="cropX" min="-100" max="100" value="0"></div>
+      <div class="field"><label for="cropY">Mover para cima ou baixo</label><input type="range" id="cropY" min="-100" max="100" value="0"></div>
+    </div>
     <div class="conv">
       <h2>Converter para sombra</h2>
       <div class="seg" role="group" aria-label="Tipo de conversão">
@@ -112,6 +119,12 @@
       <button class="btn" id="artClear" hidden>Remover estampa</button>
     </div>
     <p id="artMsg" role="status"></p>
+    <div class="conv" id="artCrop" hidden>
+      <h2>Recortar a estampa</h2>
+      <div class="field"><label for="aCropZ">Aproximar</label><input type="range" id="aCropZ" min="100" max="400" value="100"></div>
+      <div class="field"><label for="aCropX">Mover para os lados</label><input type="range" id="aCropX" min="-100" max="100" value="0"></div>
+      <div class="field"><label for="aCropY">Mover para cima ou baixo</label><input type="range" id="aCropY" min="-100" max="100" value="0"></div>
+    </div>
     <div class="field"><label for="artThr">Limite entre claro e escuro</label><output id="artThrOut">128</output>
       <input type="range" id="artThr" min="10" max="245" value="128"></div>
     <label class="check"><input type="checkbox" id="artInv"> Inverter claro e escuro</label>
@@ -119,6 +132,13 @@
   </section>
 
   <section id="p3" hidden>
+    <h2>Teste os encaixes primeiro</h2>
+    <p>Um kit pequeno com caixa, tampo, painel e haste. Gasta pouco e mostra se os encaixes servem na sua impressora.</p>
+    <button class="btn" id="saveTest">Baixar peça de teste</button>
+    <div class="field"><label for="fit">Folga dos encaixes</label><output id="fitOut"></output>
+      <input type="range" id="fit" min="-30" max="60" step="5" value="0"></div>
+    <p>Encaixe justo demais: aumente. Encaixe solto: diminua. Vale para o kit e para as peças finais.</p>
+    <h2>Luminária completa</h2>
     <div class="row">
       <button class="btn main" id="saveZip">Peças em ZIP</button>
       <button class="btn main alt" id="saveStl">STL único</button>
@@ -128,6 +148,16 @@
     <label class="check"><input type="checkbox" id="glue"> Aceitar pedaços soltos, colados nos cantos (menos riscos na sombra)</label>
     <ul class="list" id="parts"></ul>
     <button class="btn" id="openManual2">Ver lista de compras e manual de montagem</button>
+  </section>
+  <section id="p4" hidden>
+    <h2>Meus projetos</h2>
+    <div class="field"><label for="projName">Nome do projeto</label><input type="text" id="projName" class="txt" placeholder="Ex.: Murilo 10" maxlength="40"></div>
+    <div class="row"><button class="btn" id="projSave">Salvar aqui</button><button class="btn" id="projExport">Salvar em arquivo</button></div>
+    <div class="btn upload">Abrir arquivo<input type="file" id="projImport" accept=".json,application/json" aria-label="Abrir arquivo de projeto"></div>
+    <p id="projMsg" role="status"></p>
+    <p id="projEmpty">Nenhum projeto salvo neste aparelho.</p>
+    <div id="projList" class="projs"></div>
+    <p>Projetos salvos aqui ficam só neste navegador. Para levar a outro aparelho, use Salvar em arquivo.</p>
   </section>
   <footer>© 2026 Romario · Ateliê de Sombras · Todos os direitos reservados</footer>
 </div>
