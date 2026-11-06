@@ -66,9 +66,9 @@ const Room = (() => {
       const map = (x, y, z) => [x - w / 2, y - h / 2, B + z], pl = mesh(lo, map, 0xece6d8); lamp.add(pl); plates.push(pl); lamp.add(mesh(hi, map, 0x141418)); }
     glow.position.set(0, ALT, L * .001);
   }
-  function computeLux(p, panels) { lux = new Uint8Array(TW * TH); const mm = RW * 1000 / TW;
-    for (let j = 0, o = 0; j < TH; j++) { const Y = (RH * 1000 * (.5 - j / TH)) + (RH * 500 - ALT * 1000);
-      for (let i = 0; i < TW; i++, o++) { const X = (i - TW / 2 + .5) * mm; if (Sombra.blocked(panels, p, X, Y)) continue; lux[o] = 255 / (1 + (X * X + Y * Y) / 67600 * .55); } } }
+  function computeLux(p, panels) { const mm = RW * 1000 / TW, l = Sombra.lampLight(p), ref = Sombra.exposure(l, p), xf = i => (i - TW / 2 + .5) * mm, yf = j => (RH * 1000 * (.5 - j / TH)) + (RH * 500 - ALT * 1000);
+    const vis = Sombra.visField(panels, p, l, TW, TH, xf, yf, 3); lux = new Uint8Array(TW * TH);
+    for (let j = 0, o = 0; j < TH; j++) { const Y = yf(j); for (let i = 0; i < TW; i++, o++) if (vis[o]) lux[o] = 255 * Sombra.tone(Sombra.irradiance(l, xf(i), Y) * vis[o], ref); } }
   function paint() { const d = timg.data, w = WALLS[s.wall], c = LED[s.led], amb = s.room ? .85 : .035, k = s.on ? (s.room ? .35 : 1.05) / 255 : 0;
     for (let o = 0, q = 0; o < lux.length; o++, q += 4) { const l = lux[o] * k; d[q] = Math.min(255, 255 * w[0] * (amb + l * c[0])); d[q + 1] = Math.min(255, 255 * w[1] * (amb + l * c[1])); d[q + 2] = Math.min(255, 255 * w[2] * (amb + l * c[2])); d[q + 3] = 255; }
     tctx.putImageData(timg, 0, 0); tex.needsUpdate = true;

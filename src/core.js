@@ -152,6 +152,70 @@ const Sombra = (() => {
     return false;
   }
 
+  /* luz real: um raio da fonte até a parede, contra todos os objetos da luminária. */
+  function lampLight(p) { return { kind: 'led', x: 0, y: 0, z: ledZ(p), size: 3, tilt: 0, beam: 0, m: 1, parts: true }; }
+  function cylHit(sx, sy, sz, dx, dy, zl, zh, r) { if (sz <= zl) return false;
+    const f0 = Math.max(0, 1 - Math.min(zh, sz) / sz), f1 = 1 - zl / sz, ax = sx + dx * f0, ay = sy + dy * f0, bx = dx * (f1 - f0), by = dy * (f1 - f0), q = bx * bx + by * by;
+    const t = q < 1e-9 ? 0 : Math.max(0, Math.min(1, -(ax * bx + ay * by) / q)), cx = ax + bx * t, cy = ay + by * t; return cx * cx + cy * cy < r * r; }
+  function rayBlocked(panels, p, sx, sy, sz, X, Y, parts) {
+    const A = p.W / 2, B = p.H / 2, FA = A + FL, FB = B + FL, dx = X - sx, dy = Y - sy;
+    let lo = 1 - BASE / sz, hi = 1; // caixa de eletrônica
+    if (Math.abs(dx) < 1e-9) { if (Math.abs(sx) >= FA) hi = -1; }
+    else { let a = (-FA - sx) / dx, b = (FA - sx) / dx; if (a > b) { const t = a; a = b; b = t; } if (a > lo) lo = a; if (b < hi) hi = b; }
+    if (Math.abs(dy) < 1e-9) { if (Math.abs(sy) >= FB) hi = -1; }
+    else { let a = (-FB - sy) / dy, b = (FB - sy) / dy; if (a > b) { const t = a; a = b; b = t; } if (a > lo) lo = a; if (b < hi) hi = b; }
+    if (lo < hi) return true;
+    for (let w = 0; w < 4; w++) {
+      const vert = w < 2, pos = w % 2 === 0, half = vert ? A : B, s = vert ? sx : sy, d = vert ? dx : dy; if (Math.abs(d) < 1e-9) continue;
+      const pn = vert ? (pos ? panels.direito : panels.esquerdo) : (pos ? panels.superior : panels.inferior), sign = pos ? 1 : -1, o = vert ? sy : sx, e = vert ? dy : dx;
+      const f0 = (sign * (half - WALL) - s) / d, f1 = (sign * half - s) / d, zTop = BASE + pn.ny * G;
+      const z0 = sz * (1 - f0), z1 = sz * (1 - f1); if ((z0 < BASE && z1 < BASE) || (z0 > zTop && z1 > zTop) || (f0 <= 0 && f1 <= 0) || (f0 >= 1 && f1 >= 1)) continue;
+      const n = Math.min(12, 2 + Math.ceil(Math.abs(z1 - z0) / .5));
+      for (let k = 0; k <= n; k++) { const f = f0 + (f1 - f0) * k / n; if (f <= 0 || f >= 1) continue;
+        const z = sz * (1 - f), j = Math.round((z - BASE) / G); if (j < 0 || j >= pn.ny) continue;
+        const i = Math.round(((o + e * f) * pn.def.dir + pn.len / 2) / G);
+        if (i >= 0 && i < pn.nx && pn.a[j * pn.nx + i]) return true; } }
+    if (parts) { const L = ledZ(p); // haste (r 4) e tampa do LED (r 6,5), vistas por uma fonte fora do eixo ou da frente
+      if (cylHit(sx, sy, sz, dx, dy, BASE, L - GAP, 4) || cylHit(sx, sy, sz, dx, dy, L, L + 11, 6.5)) return true; }
+    return false;
+  }
+  /* fração da fonte visível de um ponto da parede: 1 luz, 0 sombra, entre eles penumbra. */
+  const DISC = (() => { const a = []; for (let k = 0; k < 16; k++) { const t = k * 2.399963, r = Math.sqrt((k + .5) / 16); a.push([r * Math.cos(t), r * Math.sin(t)]); } return a; })();
+  function visible(panels, p, l, X, Y) {
+    const r = l.size / 2, ray = (u, v) => rayBlocked(panels, p, l.x + u * r, l.y + v * r, l.z, X, Y, l.parts) ? 0 : 1;
+    const c = ray(0, 0); if (r < .01) return c;
+    const q = ray(.75, 0) + ray(-.75, 0) + ray(0, .75) + ray(0, -.75);
+    if ((c === 1 && q === 4) || (c === 0 && q === 0)) return c;
+    let n = c + q; for (const d of DISC) n += ray(d[0], d[1]); return n / 21;
+  }
+  /* mapa de visibilidade w×h. Com step > 1, blocos uniformes são preenchidos sem traçar todo pixel. */
+  function visField(panels, p, l, w, h, xf, yf, step = 1) {
+    const out = new Float32Array(w * h);
+    if (step <= 1) { for (let j = 0, o = 0; j < h; j++) for (let i = 0; i < w; i++, o++) out[o] = visible(panels, p, l, xf(i), yf(j)); return out; }
+    const gw = Math.ceil((w - 1) / step) + 2, gh = Math.ceil((h - 1) / step) + 2, g = new Float32Array(gw * gh);
+    for (let j = 0, o = 0; j < gh; j++) for (let i = 0; i < gw; i++, o++) g[o] = visible(panels, p, l, xf(i * step), yf(j * step));
+    for (let b = 0; b < gh - 1; b++) for (let a = 0; a < gw - 1; a++) { const o = b * gw + a, v = g[o], same = v === g[o + 1] && v === g[o + gw] && v === g[o + gw + 1] && (v === 0 || v === 1);
+      for (let j = b * step, je = Math.min(h, j + step); j < je; j++) for (let i = a * step, ie = Math.min(w, i + step); i < ie; i++) out[j * w + i] = same ? v : visible(panels, p, l, xf(i), yf(j)); }
+    return out;
+  }
+  /* quanta luz chega ao ponto: inverso do quadrado, ângulo na parede e abertura do facho. */
+  function irradiance(l, X, Y) {
+    const dx = X - l.x, dy = Y - l.y, d2 = dx * dx + dy * dy + l.z * l.z, d = Math.sqrt(d2), cw = l.z / d, t = (l.tilt || 0) * Math.PI / 180;
+    const ca = (dy * Math.sin(t) + l.z * Math.cos(t)) / d; if (ca <= 0) return 0; // eixo do facho
+    let I;
+    if (l.beam > 0) { const a = Math.acos(Math.min(1, ca)) * 180 / Math.PI, st = (e0, e1, v) => { const q = Math.max(0, Math.min(1, (v - e0) / (e1 - e0))); return q * q * (3 - 2 * q); };
+      I = (1 - st(l.beam * .8, l.beam * 1.15, a)) + .05 * (1 - st(l.beam * 1.15, l.beam * 4, a)); }
+    else I = Math.pow(ca, l.m || 1);
+    return I * cw / d2;
+  }
+  /* exposição como numa foto: normaliza pelo ponto mais forte que a luz alcança fora da caixa. */
+  function exposure(l, p) {
+    if (l.beam > 0) return irradiance(l, l.x, l.y + l.z * Math.tan((l.tilt || 0) * Math.PI / 180));
+    const r = Math.max(p.W, p.H) * .75; return irradiance(l, l.x + r, l.y);
+  }
+  /* valor de tela 0..1 (com gama) a partir da iluminação. */
+  function tone(E, ref) { return Math.pow(1 - Math.exp(-1.6 * E / ref), 1 / 2.2); }
+
   /* fidelidade: sombra pedida × sombra real, dentro da área da imagem.
      O que fica atrás da caixa conta: luz escondida ali é detalhe perdido. */
   function score(sil, panels, p) {
@@ -418,6 +482,6 @@ const Sombra = (() => {
     disc(N * .84, N * .13, 0); return a;
   }
 
-  return { N, G, WALL, BASE, threeMF, ledZ, postLen, artSize, FL, POST_OD, GAP, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, boxTris, hatchTris, plateTris, postTris, capTris, testParts, panelTris, stl, zip, tree, contours, SIDES };
+  return { lampLight, rayBlocked, visible, visField, irradiance, exposure, tone, N, G, WALL, BASE, threeMF, ledZ, postLen, artSize, FL, POST_OD, GAP, maskAt, merge, bestPosition, artClean, artTris, ART_BASE, ART_TOP, buildAll, blocked, score, boxTris, hatchTris, plateTris, postTris, capTris, testParts, panelTris, stl, zip, tree, contours, SIDES };
 })();
 if (typeof module !== 'undefined') module.exports = Sombra;

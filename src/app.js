@@ -4,29 +4,44 @@ const BOXES = [['Pequena', 110, 125, 70], ['Média', 110, 155, 90], ['Grande', 1
 const maxShadow = (W, H, D) => 2 * Math.sqrt(45 * Math.min(W, H) / 2 * (D - 2));
 const edgeCm = p => (p.S / 2) ** 2 / (Math.min(p.W, p.H) / 2 * Sombra.ledZ(p)) / 10; // parede visível: 1 m
 const st = { gray: null, edit: new Int8Array(N * N), sil: new Uint8Array(N * N), panels: null, tool: 'move', view: 'wall', undo: [], busy: 0,
-  p: { W: 110, H: 155, D: 90, S: 900, ox: 0, oy: 0, frame: false, glue: false, fit: 0 }, thr: 128, inv: false, preview: false };
+  lightMode: 'led', p: { W: 110, H: 155, D: 90, S: 900, ox: 0, oy: 0, frame: false, glue: false, fit: 0 }, thr: 128, inv: false, preview: false };
 const cv = $('wall'), ctx = cv.getContext('2d', { willReadFrequently: true }), R = cv.width, img = ctx.createImageData(R, R);
 
 function compose() {
   const { gray, edit, sil, thr, inv } = st;
   for (let i = 0; i < N * N; i++) { let d = gray[i] < thr; if (inv) d = !d; sil[i] = edit[i] > 0 ? 255 : edit[i] < 0 ? 0 : d ? 255 : 0; }
 }
-function drawWall() {
-  const { p, panels, sil, preview } = st, d = img.data, L = Sombra.ledZ(p), mm = VIEW / R;
-  for (let j = 0, o = 0; j < R; j++) { const Y = (R / 2 - j - .5) * mm;
-    for (let i = 0; i < R; i++, o += 4) { const X = (i - R / 2 + .5) * mm; let dark;
-      if (preview || !panels) dark = Sombra.maskAt(sil, X, Y, p) > 127;
-      else dark = Sombra.blocked(panels, p, X, Y);
-      const r2 = (X * X + Y * Y) / (260 * 260), lux = dark ? 0 : 1 / (1 + r2 * .55);
-      d[o] = 14 + 232 * lux; d[o + 1] = 13 + 200 * lux; d[o + 2] = 18 + 146 * lux; d[o + 3] = 255; } }
+const LIGHTS = { led: 'LED da luminária', cel: 'Celular na abertura', lan: 'Lanterna na mão' };
+function lightNow() { const p = st.p, m = st.lightMode, l = Sombra.lampLight(p);
+  if (m === 'cel') return { ...l, kind: m, z: p.D + 1, parts: false };
+  if (m === 'lan') return { kind: m, x: +$('lX').value, y: +$('lY').value, z: +$('lZ').value, size: +$('lS').value, tilt: +$('lT').value, beam: +$('lB').value, m: 1, parts: false };
+  return l; }
+function lightMsg() { const p = st.p, m = st.lightMode, l = lightNow(), L = Sombra.ledZ(p);
+  for (const [k, u] of [['Z', ' mm'], ['X', ' mm'], ['Y', ' mm'], ['T', '°'], ['B', '°'], ['S', ' mm']]) $('l' + k + 'o').textContent = $('l' + k).value + u;
+  $('lightBox').hidden = m !== 'lan';
+  if (m === 'led') $('lightMsg').textContent = `Luz real da luminária: ponto pequeno no centro, a ${L} mm da parede. A sombra enfraquece longe da caixa, como acontece no escuro.`;
+  else if (m === 'cel') $('lightMsg').textContent = `Teste sem soldar: encoste o celular nas pontas dos painéis, com o flash virado para a parede e no centro da abertura.`;
+  else { const off = Math.hypot(l.x, l.y), far = l.z - L, need = Math.round(Math.atan(p.S / 2 / L) * 180 / Math.PI), pos = off < 4 && Math.abs(far) < 5;
+    const beam = l.beam < need * .8 ? ` O facho tem ${l.beam}° para cada lado e esta sombra pede cerca de ${need}°: só o meio fica iluminado.` : '';
+    $('lightMsg').textContent = (pos ? 'Posição certa.' : `A luz deveria estar no centro e a ${L} mm da parede. Ela está ${far > 0 ? far + ' mm mais longe' : far < 0 ? -far + ' mm mais perto' : 'na distância certa'}${off >= 4 ? ` e ${off.toFixed(0)} mm fora do centro` : ''}. Inclinar só move o facho: o desenho depende da posição.`) + beam; } }
+let refineTimer;
+function drawWall(step = 3) {
+  const { p, panels, sil, preview } = st, d = img.data, mm = VIEW / R, l = lightNow(), ref = Sombra.exposure(l, p), ctr = R / 2 - .5;
+  const c = l.kind === 'led' || l.kind === 'cel' ? (l.kind === 'led' ? [232, 200, 146] : [234, 234, 238]) : [236, 236, 240];
+  const vis = preview || !panels ? null : Sombra.visField(panels, p, l, R, R, i => (i - ctr) * mm, j => (ctr - j) * mm, step);
+  for (let j = 0, o = 0; j < R; j++) { const Y = (ctr - j) * mm;
+    for (let i = 0; i < R; i++, o += 4) { const X = (i - ctr) * mm, v = vis ? vis[j * R + i] : Sombra.maskAt(sil, X, Y, p) > 127 ? 0 : 1, lux = v ? Sombra.tone(Sombra.irradiance(l, X, Y) * v, ref) : 0;
+      d[o] = 14 + c[0] * lux; d[o + 1] = 13 + (c[1] - 1) * lux; d[o + 2] = 18 + (c[2] - 4) * lux; d[o + 3] = 255; } }
   ctx.putImageData(img, 0, 0);
   const w = (p.W + 2 * Sombra.FL) / mm, h = (p.H + 2 * Sombra.FL) / mm, x = R / 2 - w / 2, y = R / 2 - h / 2;
-  ctx.fillStyle = '#efe3cc'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#6a6578'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
-  ctx.fillStyle = '#4a4656'; ctx.font = '500 20px "IBM Plex Mono",monospace'; ctx.textAlign = 'center';
+  ctx.fillStyle = st.lightMode === 'led' ? '#efe3cc' : '#201f27'; ctx.fillRect(x, y, w, h); ctx.strokeStyle = '#6a6578'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+  ctx.fillStyle = st.lightMode === 'led' ? '#4a4656' : '#a9a4b4'; ctx.font = '500 20px "IBM Plex Mono",monospace'; ctx.textAlign = 'center';
   ctx.fillText(`${p.W}×${p.H}`, R / 2, R / 2 + 7);
   if (st.tool === 'move') { const s = p.S / mm; ctx.setLineDash([8, 8]); ctx.strokeStyle = 'rgba(255,190,107,.55)'; if (p.frame) { ctx.beginPath(); ctx.arc(R / 2 + p.ox / mm, R / 2 - p.oy / mm, s / 2, 0, 7); ctx.stroke(); } else ctx.strokeRect(R / 2 + (p.ox - p.S / 2) / mm, R / 2 - (p.oy + p.S / 2) / mm, s, s); ctx.setLineDash([]); }
   ctx.textAlign = 'left'; ctx.font = '500 18px "IBM Plex Mono",monospace'; ctx.fillStyle = 'rgba(241,234,217,.8)';
   ctx.fillRect(20, R - 22, 100 / mm, 3); ctx.fillText('10 cm', 20, R - 32);
+  if (st.lightMode === 'lan') { const lx = R / 2 + l.x / mm, ly = R / 2 - l.y / mm; ctx.strokeStyle = '#ffbe6b'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(lx, ly, 9, 0, 7); ctx.moveTo(lx - 15, ly); ctx.lineTo(lx + 15, ly); ctx.moveTo(lx, ly - 15); ctx.lineTo(lx, ly + 15); ctx.stroke(); }
+  clearTimeout(refineTimer); if (vis && step > 1) refineTimer = setTimeout(() => { if (st.view === 'wall' && !st.preview) drawWall(1); }, 350);
 }
 function drawParts() {
   ctx.fillStyle = '#16151d'; ctx.fillRect(0, 0, R, R);
@@ -57,10 +72,10 @@ function drawFront() { ctx.fillStyle = '#16151d'; ctx.fillRect(0, 0, R, R); cons
   g.putImageData(im, 0, 0); ctx.imageSmoothingEnabled = true; ctx.drawImage(c, x, y, w, h); ctx.fillStyle = '#16151d'; ctx.beginPath(); ctx.arc(R / 2, R / 2, 6.8 * s, 0, 7); ctx.fill(); }
 function artChanged() { artMask(); Room.dirty(); $('artThrOut').textContent = art.thr; if (art.bmp) { st.view = 'front'; viewButtons(); } draw(); partsList(); }
 function viewButtons() { for (const [id, v] of [['vWall', 'wall'], ['vParts', 'parts'], ['vFront', 'front'], ['vRoom', 'room']]) $(id).setAttribute('aria-pressed', st.view === v);
-  const room = st.view === 'room'; $('wall').hidden = room; $('room').hidden = !room; $('roomHint').hidden = !room; $('roomBar').hidden = !room; }
+  const room = st.view === 'room'; $('wall').hidden = room; $('room').hidden = !room; $('roomHint').hidden = !room; $('roomBar').hidden = !room; $('lightBar').hidden = st.view !== 'wall'; }
 const roomMsg = t => { $('roomMsg').textContent = t; };
 async function showRoom() { clearTimeout(timer); if (!st.panels) st.panels = Sombra.buildAll(st.sil, st.p); await Room.show($('room'), st.p, st.panels, art.bmp ? art.mask : null, roomMsg); }
-function draw() { if (st.view === 'room') return showRoom(); st.view === 'wall' ? drawWall() : st.view === 'front' ? drawFront() : drawParts(); }
+function draw() { if (st.view === 'room') return showRoom(); st.view === 'wall' ? (lightMsg(), drawWall()) : st.view === 'front' ? drawFront() : drawParts(); }
 
 let timer = 0;
 function rebuild(now) {
@@ -152,6 +167,8 @@ $('vWall').onclick = () => pick('view', 'wall'); $('vParts').onclick = () => pic
 [1, 2, 3, 4].forEach(n => $('s' + n).onclick = () => pick('step', n));
 $('vFront').onclick = () => pick('view', 'front');
 $('vRoom').onclick = () => pick('view', 'room');
+for (const [id, m] of [['lLed', 'led'], ['lCel', 'cel'], ['lLan', 'lan']]) $(id).onclick = () => { st.lightMode = m; for (const b of ['lLed', 'lCel', 'lLan']) $(b).setAttribute('aria-pressed', b === id); lightMsg(); drawWall(); };
+for (const id of ['lZ', 'lX', 'lY', 'lT', 'lB', 'lS']) $(id).oninput = () => { lightMsg(); drawWall(6); };
 $('rLed').onchange = e => Room.set('on', e.target.checked);
 $('rRoom').onchange = e => Room.set('room', e.target.checked);
 $('rColor').onchange = e => Room.set('led', e.target.value);

@@ -20,6 +20,20 @@
   <div class="stage"><canvas id="wall" width="720" height="720" aria-label="Simulação da sombra na parede"></canvas>
     <canvas id="room" hidden aria-label="Quarto em 3D com a luminária na parede"></canvas>
     <p id="roomHint" hidden>Arraste para girar. Use dois dedos para aproximar.</p></div>
+  <div class="roomBar" id="lightBar">
+    <div class="seg" role="group" aria-label="Luz simulada">
+      <button id="lLed" aria-pressed="true">LED da luminária</button><button id="lCel" aria-pressed="false">Celular</button><button id="lLan" aria-pressed="false">Lanterna</button>
+    </div>
+    <div id="lightBox" hidden>
+      <div class="field"><label for="lZ">Distância da parede</label><output id="lZo"></output><input type="range" id="lZ" min="40" max="800" step="5" value="350"></div>
+      <div class="field"><label for="lY">Altura em relação ao centro</label><output id="lYo"></output><input type="range" id="lY" min="-300" max="300" step="5" value="-120"></div>
+      <div class="field"><label for="lX">Para os lados</label><output id="lXo"></output><input type="range" id="lX" min="-300" max="300" step="5" value="0"></div>
+      <div class="field"><label for="lT">Inclinação</label><output id="lTo"></output><input type="range" id="lT" min="-45" max="45" value="0"></div>
+      <div class="field"><label for="lB">Abertura do facho</label><output id="lBo"></output><input type="range" id="lB" min="5" max="80" value="14"></div>
+      <div class="field"><label for="lS">Tamanho da fonte de luz</label><output id="lSo"></output><input type="range" id="lS" min="1" max="50" value="25"></div>
+    </div>
+    <p id="lightMsg" role="status"></p>
+  </div>
   <div class="roomBar" id="roomBar" hidden>
     <label class="check"><input type="checkbox" id="rLed" checked> Luminária ligada</label>
     <label class="check"><input type="checkbox" id="rRoom"> Luz do quarto acesa</label>
